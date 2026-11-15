@@ -1,7 +1,14 @@
 {
   "name": "openchamber-ci-hub",
   "version": "0.1.0",
-  "private": true,
+  "files": [
+    "panel/index.html",
+    "panel/main.js",
+    "panel/page.html",
+    "service/main.js",
+    "README.md",
+    "LICENSE"
+  ],
   "description": "CI console inside OpenChamber: runs, failing logs, re-run, cancel, dispatch and agent handoff for GitHub Actions, GitLab, Gitea, Forgejo, Woodpecker and Bitbucket.",
   "license": "MIT",
   "type": "module",
