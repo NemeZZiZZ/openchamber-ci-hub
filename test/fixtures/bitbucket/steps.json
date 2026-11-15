@@ -1,0 +1,26 @@
+{
+  "values": [
+    {
+      "uuid": "{c3d4e5f6-aaaa-bbbb-cccc-ddddeeeeffff}",
+      "image": { "name": "node:20" },
+      "started_on": "2026-11-15T10:00:10+00:00",
+      "completed_on": "2026-11-15T10:04:00+00:00",
+      "state": { "name": "COMPLETED", "result": { "name": "SUCCESSFUL" } }
+    },
+    {
+      "uuid": "{d4e5f6a7-bbbb-cccc-dddd-eeeeffff0000}",
+      "image": "",
+      "started_on": "2026-11-15T10:04:10+00:00",
+      "completed_on": "2026-11-15T10:04:55+00:00",
+      "state": { "name": "COMPLETED", "result": { "name": "FAILED" } }
+    },
+    {
+      "uuid": "{e5f6a7b8-cccc-dddd-eeee-ffff00001111}",
+      "image": "",
+      "state": { "name": "NOT_RUN" }
+    }
+  ],
+  "page": 1,
+  "pagelen": 50,
+  "size": 3
+}

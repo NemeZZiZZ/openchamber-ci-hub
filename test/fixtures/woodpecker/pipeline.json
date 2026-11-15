@@ -1,0 +1,40 @@
+{
+  "id": 500,
+  "number": 128,
+  "status": "success",
+  "event": "push",
+  "branch": "main",
+  "commit": "abc123def4567890",
+  "title": "pixelflare: sharpen the flare pass",
+  "message": "pixelflare: sharpen the flare pass\n\nReviewers asked for less bloom.",
+  "sender": "alicia",
+  "author": "alicia",
+  "created": 1788999300,
+  "started": 1788999360,
+  "finished": 1788999600,
+  "forge_url": "https://codeberg.org/alicia/pixelflare/commit/abc123def4567890",
+  "workflows": [
+    {
+      "id": 70,
+      "name": "build",
+      "state": "success",
+      "started": 1788999360,
+      "finished": 1788999520,
+      "children": [
+        { "id": 900, "name": "clone", "type": "clone", "state": "success", "exit_code": 0, "started": 1788999360, "finished": 1788999380 },
+        { "id": 901, "name": "compile", "type": "commands", "state": "success", "exit_code": 0, "started": 1788999380, "finished": 1788999520 },
+        { "id": 902, "name": "redis", "type": "service", "state": "success", "exit_code": 0, "started": 1788999360, "finished": 1788999520 }
+      ]
+    },
+    {
+      "id": 71,
+      "name": "test",
+      "state": "failure",
+      "started": 1788999520,
+      "finished": 1788999600,
+      "children": [
+        { "id": 903, "name": "unit", "type": "commands", "state": "failure", "exit_code": 1, "started": 1788999520, "finished": 1788999600 }
+      ]
+    }
+  ]
+}

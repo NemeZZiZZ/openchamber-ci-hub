@@ -1,0 +1,44 @@
+{
+  "total_count": 2,
+  "jobs": [
+    {
+      "id": 501,
+      "run_id": 91,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-15T09:00:05Z",
+      "completed_at": "2026-11-15T09:04:00Z",
+      "html_url": "https://gitea.acme.io/g/p/actions/runs/91/jobs/0",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-11-15T09:00:05Z",
+          "completed_at": "2026-11-15T09:00:10Z"
+        },
+        {
+          "name": "Run tests",
+          "number": 2,
+          "status": "completed",
+          "conclusion": "failure",
+          "started_at": "2026-11-15T09:00:10Z",
+          "completed_at": "2026-11-15T09:04:00Z"
+        }
+      ]
+    },
+    {
+      "id": 502,
+      "run_id": 91,
+      "name": "lint",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "0001-01-01T00:00:00Z",
+      "completed_at": "0001-01-01T00:00:00Z",
+      "html_url": "https://gitea.acme.io/g/p/actions/runs/91/jobs/1",
+      "steps": []
+    }
+  ]
+}

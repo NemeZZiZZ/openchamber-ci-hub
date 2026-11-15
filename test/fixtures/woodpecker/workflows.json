@@ -1,0 +1,4 @@
+[
+  { "name": "build", "depends_on": [] },
+  { "name": "deploy", "depends_on": ["build"] }
+]

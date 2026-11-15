@@ -1,0 +1,21 @@
+{
+  "total_count": 2,
+  "workflows": [
+    {
+      "id": "build.yml",
+      "name": "Build",
+      "path": ".github/workflows/build.yml",
+      "state": "active",
+      "url": "https://gitea.acme.io/api/v1/repos/g/p/actions/workflows/build.yml",
+      "html_url": "https://gitea.acme.io/g/p/src/branch/main/.github/workflows/build.yml"
+    },
+    {
+      "id": "nightly.yml",
+      "name": "",
+      "path": ".github/workflows/nightly.yml",
+      "state": "active",
+      "url": "https://gitea.acme.io/api/v1/repos/g/p/actions/workflows/nightly.yml",
+      "html_url": "https://gitea.acme.io/g/p/src/branch/main/.github/workflows/nightly.yml"
+    }
+  ]
+}

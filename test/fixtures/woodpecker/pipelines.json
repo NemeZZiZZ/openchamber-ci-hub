@@ -1,0 +1,50 @@
+[
+  {
+    "id": 500,
+    "number": 128,
+    "status": "success",
+    "event": "push",
+    "branch": "main",
+    "commit": "abc123def4567890",
+    "title": "pixelflare: sharpen the flare pass",
+    "message": "pixelflare: sharpen the flare pass\n\nReviewers asked for less bloom.",
+    "sender": "alicia",
+    "author": "alicia",
+    "created": 1788999300,
+    "started": 1788999360,
+    "finished": 1788999600,
+    "forge_url": "https://codeberg.org/alicia/pixelflare/commit/abc123def4567890"
+  },
+  {
+    "id": 499,
+    "number": 127,
+    "status": "failure",
+    "event": "pull_request",
+    "branch": "flare-fix",
+    "commit": "def456abc7890000",
+    "title": "fix: flare on dark scenes",
+    "message": "fix: flare on dark scenes",
+    "sender": "bruno",
+    "author": "bruno",
+    "created": 1788912000,
+    "started": 1788912060,
+    "finished": 1788912600,
+    "forge_url": "https://codeberg.org/alicia/pixelflare/pulls/9"
+  },
+  {
+    "id": 498,
+    "number": 126,
+    "status": "blocked",
+    "event": "manual",
+    "branch": "main",
+    "commit": "abc123def4567890",
+    "title": "pixelflare: sharpen the flare pass",
+    "message": "pixelflare: sharpen the flare pass",
+    "sender": "alicia",
+    "author": "alicia",
+    "created": 1788820000,
+    "started": 0,
+    "finished": 0,
+    "forge_url": "https://codeberg.org/alicia/pixelflare/commit/abc123def4567890"
+  }
+]

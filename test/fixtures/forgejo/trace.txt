@@ -1,0 +1,4 @@
+| build | 2026-11-15T09:00:10Z | ##[group]Run tests
+| build | 2026-11-15T09:00:11Z | ok: first assertion passed
+| build | 2026-11-15T09:00:13Z | FAIL: expected 2 got 3 in widget.test.js:42
+| build | 2026-11-15T09:04:00Z | ##[error]Process completed with exit code 1.

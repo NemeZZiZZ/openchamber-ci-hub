@@ -1,0 +1,42 @@
+[
+  {
+    "id": 501,
+    "name": "compile",
+    "stage": "build",
+    "status": "success",
+    "allow_failure": false,
+    "duration": 61.2,
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/jobs/501",
+    "created_at": "2026-11-14T10:00:05Z",
+    "started_at": "2026-11-14T10:00:06Z",
+    "finished_at": "2026-11-14T10:01:07Z",
+    "user": {
+      "username": "octo"
+    }
+  },
+  {
+    "id": 502,
+    "name": "lint",
+    "stage": "test",
+    "status": "failed",
+    "allow_failure": true,
+    "duration": 12.0,
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/jobs/502",
+    "created_at": "2026-11-14T10:01:10Z",
+    "started_at": "2026-11-14T10:01:10Z",
+    "finished_at": "2026-11-14T10:01:22Z",
+    "user": {
+      "username": "octo"
+    }
+  },
+  {
+    "id": 503,
+    "name": "deploy",
+    "stage": "deploy",
+    "status": "manual",
+    "allow_failure": false,
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/jobs/503",
+    "created_at": "2026-11-14T10:00:05Z",
+    "user": null
+  }
+]

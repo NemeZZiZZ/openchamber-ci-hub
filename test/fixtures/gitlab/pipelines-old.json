@@ -1,0 +1,38 @@
+[
+  {
+    "id": 911,
+    "iid": 42,
+    "project_id": 77,
+    "ref": "main",
+    "sha": "abc123",
+    "status": "running",
+    "source": "push",
+    "created_at": "2026-11-14T10:00:00Z",
+    "updated_at": "2026-11-14T10:01:00Z",
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/pipelines/911"
+  },
+  {
+    "id": 910,
+    "iid": 41,
+    "project_id": 77,
+    "ref": "refs/merge-requests/7/head",
+    "sha": "def456",
+    "status": "failed",
+    "source": "merge_request",
+    "created_at": "2026-11-14T09:00:00Z",
+    "updated_at": "2026-11-14T09:05:00Z",
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/pipelines/910"
+  },
+  {
+    "id": 909,
+    "iid": 40,
+    "project_id": 77,
+    "ref": "main",
+    "sha": "000789",
+    "status": "success",
+    "source": "schedule",
+    "created_at": "2026-11-13T22:00:00Z",
+    "updated_at": "2026-11-13T22:04:00Z",
+    "web_url": "https://gitlab.gurunetwork.ai/DEXGURU/e8-markets/-/pipelines/909"
+  }
+]

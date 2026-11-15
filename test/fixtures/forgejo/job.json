@@ -1,0 +1,23 @@
+{
+  "id": 601,
+  "run_id": 71,
+  "name": "build",
+  "status": "failure",
+  "html_url": "https://codeberg.org/g/p/actions/runs/71/jobs/0",
+  "steps": [
+    {
+      "number": 0,
+      "name": "Set up job",
+      "status": "success",
+      "started": "2026-11-15T09:00:05Z",
+      "stopped": "2026-11-15T09:00:10Z"
+    },
+    {
+      "number": 1,
+      "name": "Run tests",
+      "status": "failure",
+      "started": "2026-11-15T09:00:10Z",
+      "stopped": "2026-11-15T09:04:00Z"
+    }
+  ]
+}

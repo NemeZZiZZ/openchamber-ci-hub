@@ -1,0 +1,16 @@
+[
+  {
+    "id": 601,
+    "run_id": 71,
+    "name": "build",
+    "status": "failure",
+    "html_url": "https://codeberg.org/g/p/actions/runs/71/jobs/0"
+  },
+  {
+    "id": 602,
+    "run_id": 71,
+    "name": "lint",
+    "status": "skipped",
+    "html_url": "https://codeberg.org/g/p/actions/runs/71/jobs/1"
+  }
+]

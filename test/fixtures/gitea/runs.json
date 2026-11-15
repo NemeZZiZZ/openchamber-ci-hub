@@ -1,0 +1,54 @@
+{
+  "total_count": 3,
+  "workflow_runs": [
+    {
+      "id": 91,
+      "url": "https://gitea.acme.io/api/v1/repos/g/p/actions/runs/91",
+      "html_url": "https://gitea.acme.io/g/p/actions/runs/91",
+      "display_title": "Fix the widget",
+      "path": "build.yml@refs/heads/main",
+      "event": "push",
+      "run_attempt": 1,
+      "run_number": 12,
+      "head_sha": "abc1234",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-15T09:00:00Z",
+      "completed_at": "2026-11-15T09:04:30Z",
+      "actor": { "login": "ada" },
+      "trigger_actor": { "login": "ada" }
+    },
+    {
+      "id": 90,
+      "html_url": "https://gitea.acme.io/g/p/actions/runs/90",
+      "display_title": "",
+      "path": ".github/workflows/build.yml@refs/heads/main",
+      "event": "push",
+      "run_attempt": 2,
+      "run_number": 11,
+      "head_sha": "def5678",
+      "head_branch": "main",
+      "status": "in_progress",
+      "started_at": "2026-11-15T08:00:00Z",
+      "completed_at": "0001-01-01T00:00:00Z",
+      "actor": { "login": "ada" }
+    },
+    {
+      "id": 89,
+      "html_url": "https://gitea.acme.io/g/p/actions/runs/89",
+      "display_title": "Nightly",
+      "path": "nightly.yml@refs/heads/main",
+      "event": "schedule",
+      "run_attempt": 1,
+      "run_number": 10,
+      "head_sha": "aaa0000",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-11-14T03:00:00Z",
+      "completed_at": "2026-11-14T03:10:00Z",
+      "actor": { "login": "gitea" }
+    }
+  ]
+}

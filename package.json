@@ -1,0 +1,166 @@
+{
+  "name": "openchamber-ci-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CI console inside OpenChamber: runs, failing logs, re-run, cancel, dispatch and agent handoff for GitHub Actions, GitLab, Gitea, Forgejo, Woodpecker and Bitbucket.",
+  "license": "MIT",
+  "type": "module",
+  "openchamber": {
+    "apiVersion": 1,
+    "engines": {
+      "openchamber": ">=2.7.1"
+    },
+    "id": "ci-hub",
+    "name": "CI Hub",
+    "icon": "instance",
+    "contributes": {
+      "capabilities": [
+        "prompt",
+        "sessions"
+      ],
+      "panel": {
+        "id": "ci-hub",
+        "name": "CI Hub",
+        "icon": "instance",
+        "entry": "panel/index.html"
+      },
+      "page": {
+        "entry": "panel/page.html",
+        "title": "CI Hub"
+      },
+      "mentions": {
+        "label": "CI Hub runs"
+      },
+      "statusSection": {
+        "source": {
+          "path": "/status",
+          "interval": 10000.0
+        },
+        "title": "CI Pipelines"
+      },
+      "service": {
+        "entry": "service/main.js",
+        "runtime": "host",
+        "permissions": {
+          "exec": [
+            "git",
+            "gh",
+            "glab"
+          ]
+        }
+      },
+      "integration": {
+        "name": "CI Hub",
+        "description": "Tokens for the CI hosts CI Hub talks to. Optional: CI Hub reuses the accounts you connected in OpenChamber, or the gh and glab CLIs. Woodpecker takes a server URL and a token; Bitbucket takes an email and an API token.",
+        "token": {
+          "apiOrigin": "https://api.github.com",
+          "scheme": "bearer",
+          "account": {
+            "path": "/user",
+            "name": "login"
+          }
+        },
+        "settings": [
+          {
+            "id": "github-token",
+            "label": "GitHub token (repo and workflow scope)",
+            "secret": true
+          },
+          {
+            "id": "gitlab-token",
+            "label": "GitLab token for gitlab.com (read_api, or api to write)",
+            "secret": true
+          },
+          {
+            "id": "gitea-token",
+            "label": "Gitea token for gitea.com (watch: read; re-run and dispatch: repo write)",
+            "secret": true
+          },
+          {
+            "id": "forgejo-token",
+            "label": "Forgejo token for codeberg.org (watch: read; cancel, re-run and dispatch: repo write)",
+            "secret": true
+          },
+          {
+            "id": "repos",
+            "label": "Extra repositories (owner/name, comma separated)"
+          },
+          {
+            "id": "woodpecker-server",
+            "label": "Woodpecker server URL (for example https://ci.codeberg.org)"
+          },
+          {
+            "id": "woodpecker-token",
+            "label": "Woodpecker token (profile → access tokens)",
+            "secret": true
+          },
+          {
+            "id": "bitbucket-email",
+            "label": "Bitbucket account email (Atlassian account)"
+          },
+          {
+            "id": "bitbucket-token",
+            "label": "Bitbucket API token (Atlassian API tokens — app passwords no longer work)",
+            "secret": true
+          }
+        ]
+      },
+      "waits": [
+        {
+          "id": "run-finished",
+          "title": "CI run finished",
+          "description": "Wakes the session when that CI run completes, or only when it ends with the given conclusion",
+          "params": {
+            "repo": {
+              "type": "string",
+              "description": "Repository: owner/name on github.com, a repository URL, or a CI Hub repo key (github:host/path). Optional when the session folder has a remote CI Hub knows."
+            },
+            "runId": {
+              "type": "string",
+              "description": "Run id or run URL.",
+              "required": true
+            },
+            "conclusion": {
+              "type": "string",
+              "description": "Wake only on this conclusion: success, failure, cancelled, or any (default any)"
+            }
+          },
+          "interval": 15000
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "bunx openchamber-guest-bundle panel/main.ts panel/main.js && bunx openchamber-guest-bundle --node service/main.ts service/main.js",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
+    "check": "bun run typecheck && bun test && bun run build && bunx openchamber-guest-check"
+  },
+  "dependencies": {
+    "@openchamber/sdk": "2.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "author": "NemeZZiZZ",
+  "keywords": [
+    "openchamber",
+    "openchamber-extension",
+    "ci",
+    "github-actions",
+    "gitlab-ci",
+    "gitea",
+    "forgejo",
+    "woodpecker-ci",
+    "bitbucket-pipelines"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NemeZZiZZ/openchamber-ci-hub.git"
+  },
+  "homepage": "https://github.com/NemeZZiZZ/openchamber-ci-hub#readme",
+  "bugs": {
+    "url": "https://github.com/NemeZZiZZ/openchamber-ci-hub/issues"
+  }
+}

@@ -1,0 +1,7 @@
+[
+  { "id": 1, "line": 1, "step_id": 903, "time": "2026-11-15T10:02:01Z", "type": 3, "data": "bWV0YQ==" },
+  { "id": 2, "line": 1, "step_id": 903, "time": "2026-11-15T10:02:02Z", "type": 0, "data": "aGVsbG8=" },
+  { "id": 3, "line": 2, "step_id": 903, "time": "2026-11-15T10:02:03Z", "type": 1, "data": "Z3LDvMOfZQ==" },
+  { "id": 4, "line": 3, "step_id": 903, "time": "2026-11-15T10:02:04Z", "type": 4, "data": "eHg=" },
+  { "id": 5, "line": 4, "step_id": 903, "time": "2026-11-15T10:02:05Z", "type": 2, "data": "MQ==" }
+]

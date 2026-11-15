@@ -1,0 +1,46 @@
+{
+  "total_count": 3,
+  "workflow_runs": [
+    {
+      "id": 71,
+      "title": "Fix the widget",
+      "workflow_id": "build.yml",
+      "index_in_repo": 12,
+      "trigger_user": { "login": "ada" },
+      "prettyref": "main",
+      "commit_sha": "abc1234",
+      "event": "push",
+      "status": "failure",
+      "started": "2026-11-15T09:00:00Z",
+      "stopped": "2026-11-15T09:04:30Z",
+      "created": "2026-11-15T08:58:00Z",
+      "html_url": "https://codeberg.org/g/p/actions/runs/71"
+    },
+    {
+      "id": 70,
+      "title": "",
+      "workflow_id": ".gitea/workflows/build.yml",
+      "index_in_repo": 11,
+      "trigger_user": { "login": "ada" },
+      "prettyref": "!42",
+      "commit_sha": "def5678",
+      "event": "pull_request",
+      "status": "running",
+      "started": "2026-11-15T08:00:00Z",
+      "html_url": "https://codeberg.org/g/p/actions/runs/70"
+    },
+    {
+      "id": 69,
+      "title": "Nightly",
+      "workflow_id": "nightly.yml",
+      "index_in_repo": 10,
+      "trigger_user": { "login": "bot" },
+      "prettyref": "main",
+      "commit_sha": "aaa0000",
+      "event": "push",
+      "status": "blocked",
+      "created": "2026-11-14T03:00:00Z",
+      "html_url": "https://codeberg.org/g/p/actions/runs/69"
+    }
+  ]
+}
