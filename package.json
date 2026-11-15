@@ -1,6 +1,6 @@
 {
   "name": "openchamber-ci-hub",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "files": [
     "panel/index.html",
     "panel/main.js",
