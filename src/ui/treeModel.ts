@@ -103,7 +103,11 @@ export const scopeBranches = (repo: OverviewRepo, scope: Scope): string[] | null
 };
 
 export const inScope = (run: Run, branches: string[] | null, actor: string): boolean =>
-  (!branches || branches.includes(run.branch)) && (!actor || run.actor === actor);
+  // A merge request pipeline runs on a pseudo-ref like
+  // `refs/merge-requests/7/head`, never on a branch, so no branch filter can
+  // catch it: it stays visible wherever branches are narrowed.
+  (!branches || branches.includes(run.branch) || run.event === 'merge_request_event') &&
+  (!actor || run.actor === actor);
 
 interface WorkflowGroup {
   id: string;

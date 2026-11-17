@@ -115,6 +115,19 @@ describe('tree model', () => {
     expect(greenRow?.kind === 'run' && greenRow.twin).toBeNull();
   });
 
+  test('a merge request pipeline stays in scope:mine without a branch of its own', () => {
+    const mr = run({
+      branch: 'refs/merge-requests/30879/head',
+      event: 'merge_request_event',
+      conclusion: 'failure',
+      createdAt: 400,
+    });
+    const elsewhere = run({ conclusion: 'success', createdAt: 300, branch: 'feature' });
+    const rows = buildRows(input([repo('acme/app', [mr, elsewhere])]));
+    const runs = rows.filter((row) => row.kind === 'run');
+    expect(runs.map((row) => row.kind === 'run' && row.run.id)).toEqual([mr.id]);
+  });
+
   test('a collapsed project has no children', () => {
     const rows = buildRows(input([repo('acme/app', [run()])], { expanded: new Set() }));
     expect(kinds(rows)).toEqual(['project']);
