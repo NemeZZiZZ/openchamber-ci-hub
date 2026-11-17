@@ -134,6 +134,10 @@ button.cih-tr:hover,button.cih-tr:focus-visible,.cih-tr-run:hover,.cih-tr-run:fo
 .cih-job:hover,.cih-job:focus-visible{background:${hover};outline:none}
 .cih-job[aria-current="true"]{background:${selection}}
 .cih-job-name{overflow-wrap:anywhere}
+.cih-job-row{display:flex;align-items:center;gap:4px;padding-right:10px}
+.cih-job-row .cih-job{width:auto;flex:1 1 auto;min-width:0}
+.cih-job-fix{flex:none;font-size:12px;padding:2px 8px;border:1px solid ${line};border-radius:${radius};background:transparent;color:inherit;cursor:pointer}
+.cih-job-fix:hover,.cih-job-fix:focus-visible{background:${hover};outline:none}
 .cih-steps{display:flex;flex-direction:column;padding:2px 10px 8px 28px;gap:1px}
 .cih-step{display:grid;grid-template-columns:8px 1fr auto;gap:6px;align-items:center;font-size:12px;padding:2px 6px;border-radius:calc(${radius} - 4px)}
 .cih-step .cih-dot{width:8px;height:8px}

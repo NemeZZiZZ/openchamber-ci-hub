@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Run } from '../src/domain/types.ts';
+import type { Job } from '../src/domain/types.ts';
 import type { OverviewRepo, OverviewView } from '../src/service/engine.ts';
 import { loadMore, loadOverview } from '../src/ui/app/data.ts';
 import { serviceOptions, tabChange } from '../src/ui/app/bar.ts';
@@ -9,6 +10,8 @@ import type { App, AppState } from '../src/ui/app/state.ts';
 import { SCOPE_MINE } from '../src/ui/treeModel.ts';
 import { parseVariablesField, serializeVariablesField } from '../src/ui/app/dispatch.ts';
 import { boardProviders, boardRows, filterBoardRows } from '../src/ui/app/board.ts';
+import { sendToAgent } from '../src/ui/app/confirm.ts';
+import { fixableJob } from '../src/ui/app/detail.ts';
 
 const run = (over: Partial<Run> = {}): Run => ({
   id: '1',
@@ -232,6 +235,43 @@ describe('loadMore', () => {
     await loadMore(app, row);
     expect(calls).toBe(1);
     expect(s.history.get(row.key)?.error).toBeNull();
+  });
+});
+
+describe('fixableJob', () => {
+  test('only failed jobs offer the fix', () => {
+    const job = (conclusion: Job['conclusion']): Job => ({
+      id: '7', runId: '1', name: 'test', status: 'completed', conclusion,
+      startedAt: null, finishedAt: null, steps: [], url: '',
+    });
+    expect(fixableJob(job('failure'))).toBe(true);
+    expect(fixableJob(job('success'))).toBe(false);
+    expect(fixableJob(job(null))).toBe(false);
+  });
+});
+
+describe('sendToAgent fix mode', () => {
+  test('fix mode reaches /handoff as mode=fix, read mode stays clean', async () => {
+    const requests: Array<{ path?: string; query?: Record<string, unknown> }> = [];
+    const app = {
+      s: { busy: new Set<string>(), directory: '/p/app' },
+      svc: async (req: { path?: string; query?: Record<string, unknown> }) => {
+        requests.push(req);
+        return { id: 'h1', title: 't', url: 'u', text: 'fix-text', directory: null };
+      },
+      host: {
+        listProjects: async () => ({ projects: [] }),
+        startSession: async () => ({ sessionId: 's1' }),
+      },
+      toast: () => undefined,
+      renderSide: () => undefined,
+    } as unknown as Parameters<typeof sendToAgent>[0];
+    const r = run();
+    await sendToAgent(app, r, '7', false, 'fix');
+    expect(requests[0]?.path).toBe('/handoff');
+    expect(requests[0]?.query ?? {}).toMatchObject({ repo: r.repo, runId: r.id, job: '7', mode: 'fix' });
+    await sendToAgent(app, r, '7', false);
+    expect(requests[1]?.query?.mode).toBeUndefined();
   });
 });
 

@@ -134,14 +134,14 @@ const projectFor = async (app: App, dir: string | null): Promise<string | undefi
   }
 };
 
-export const sendToAgent = async (app: App, run: Run, jobId: string | null, worktree: boolean) => {
+export const sendToAgent = async (app: App, run: Run, jobId: string | null, worktree: boolean, mode: 'read' | 'fix' = 'read') => {
   const { s, host, toast } = app;
   const key = `${run.id}:agent`;
   if (s.busy.has(key)) return;
   s.busy.add(key);
   app.renderSide();
   try {
-    const handoff = await app.svc<HandoffResponse>({ path: '/handoff', query: { repo: run.repo, runId: run.id, job: jobId } });
+    const handoff = await app.svc<HandoffResponse>({ path: '/handoff', query: { repo: run.repo, runId: run.id, job: jobId, ...(mode === 'fix' ? { mode } : {}) } });
     const projectId = await projectFor(app, handoff.directory ?? s.directory);
     const request: StartSessionRequest = {
       providerId: EXTENSION_ID,

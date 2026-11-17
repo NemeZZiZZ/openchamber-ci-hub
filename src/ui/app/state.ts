@@ -213,7 +213,7 @@ export interface App {
   loadLog(job: Job, full: boolean): Promise<void>;
   ask(next: Confirm): void;
   askAction(run: Run, kind: RunActionKind): void;
-  sendToAgent(run: Run, jobId: string | null, worktree: boolean): Promise<void>;
+  sendToAgent(run: Run, jobId: string | null, worktree: boolean, mode?: 'read' | 'fix'): Promise<void>;
   runMenuItems(run: Run): MenuItem[];
   onRunMenu(run: Run, id: string, jobId?: string | null): void;
 }

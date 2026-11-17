@@ -14,6 +14,9 @@ import { backBar, button, dot, note, Region, shortSha, type App, type Detail } f
 
 let detailSeq = 0;
 
+/** Only a failed job offers the Fix button: a green or running job has nothing to fix. */
+export const fixableJob = (job: Job): boolean => job.conclusion === 'failure';
+
 export const loadDetail = async (app: App, quiet: boolean) => {
   const s = app.s;
   const current = s.detail;
@@ -231,7 +234,8 @@ const renderDetail = (app: App, current: Detail) => {
     const jl = conclusionLabel(job.conclusion, job.status);
     const jd = job.startedAt ? (job.finishedAt ?? now) - job.startedAt : null;
     const selected = job.id === current.jobId;
-    jobs.append(
+    const row = h('div', { class: 'cih-job-row' });
+    row.append(
       h(
         'button',
         {
@@ -251,6 +255,21 @@ const renderDetail = (app: App, current: Detail) => {
         h('span', { class: 'cih-small cih-muted', text: jd !== null && jd >= 0 ? formatDuration(jd) : jl }),
       ),
     );
+    if (fixableJob(job)) {
+      row.append(
+        h('button', {
+          class: 'cih-job-fix',
+          type: 'button',
+          text: 'Fix',
+          title: 'Open a new session to fix this job',
+          onclick: (event: Event) => {
+            event.stopPropagation();
+            void app.sendToAgent(run, job.id, false, 'fix');
+          },
+        }),
+      );
+    }
+    jobs.append(row);
     if (selected && job.steps.length > 0) {
       const failed = failingStep(job);
       const steps = h('div', { class: 'cih-steps' });
