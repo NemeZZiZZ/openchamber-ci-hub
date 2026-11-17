@@ -2,7 +2,7 @@
 // switch between the run, dispatch and repositories surfaces.
 
 import { mountBadge, mountMenu, mountSpinner } from '@openchamber/sdk/ui';
-import { conclusionLabel, conclusionTone, formatAgo, formatDuration, formatEvent, isActive, isFailed, queueTime, runDuration } from '../../domain/format.ts';
+import { conclusionLabel, conclusionTone, formatAgo, formatDuration, formatEvent, isActive, isFailed, isFailedConclusion, queueTime, runDuration } from '../../domain/format.ts';
 import { failedJobs, failingStep, focusJob } from '../../domain/handoff.ts';
 import { parseLog } from '../../domain/log.ts';
 import { repoName } from '../../domain/repoKey.ts';
@@ -14,8 +14,8 @@ import { backBar, button, dot, note, Region, shortSha, type App, type Detail } f
 
 let detailSeq = 0;
 
-/** Only a failed job offers the Fix button: a green or running job has nothing to fix. */
-export const fixableJob = (job: Job): boolean => job.conclusion === 'failure';
+/** Only a failed job offers the Fix button: a green or running job has nothing to fix. Uses the domain's failed predicate, so timed-out and startup-failed jobs count too. */
+export const fixableJob = (job: Job): boolean => isFailedConclusion(job.conclusion);
 
 export const loadDetail = async (app: App, quiet: boolean) => {
   const s = app.s;

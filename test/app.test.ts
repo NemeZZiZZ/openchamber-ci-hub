@@ -245,8 +245,17 @@ describe('fixableJob', () => {
       startedAt: null, finishedAt: null, steps: [], url: '',
     });
     expect(fixableJob(job('failure'))).toBe(true);
+    expect(fixableJob(job('timed_out'))).toBe(true);
+    expect(fixableJob(job('startup_failure'))).toBe(true);
     expect(fixableJob(job('success'))).toBe(false);
     expect(fixableJob(job(null))).toBe(false);
+  });
+});
+
+describe('app wiring', () => {
+  test('the assembled sendToAgent forwards the fix mode', async () => {
+    const source = await Bun.file('src/ui/app.ts').text();
+    expect(source).toMatch(/sendToAgent:\s*\(run,\s*jobId,\s*worktree,\s*mode\)\s*=>\s*sendToAgent\(app,\s*run,\s*jobId,\s*worktree,\s*mode\)/);
   });
 });
 

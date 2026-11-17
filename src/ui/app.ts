@@ -224,7 +224,7 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
     loadLog: (job, full) => loadLog(app, job, full),
     ask: (next) => ask(app, next),
     askAction: (run, kind) => askAction(app, run, kind),
-    sendToAgent: (run, jobId, worktree) => sendToAgent(app, run, jobId, worktree),
+    sendToAgent: (run, jobId, worktree, mode) => sendToAgent(app, run, jobId, worktree, mode),
     runMenuItems: (run) => runMenuItems(app, run),
     onRunMenu: (run, id, jobId) => onRunMenu(app, run, id, jobId),
   };
