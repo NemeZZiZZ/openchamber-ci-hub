@@ -97,7 +97,7 @@ src/domain            pure types and logic (repo keys, format, log dialects, han
 src/providers         registry (index.ts), CiClient contract (types.ts), one adapter per provider, pure over fetch
 src/service           auth, config store, engine (cache, poller, actions), routes
 src/ui                app for the rail panel and the full-screen page
-test/                 bun tests (361)
+test/                 bun tests (369)
 ```
 
 Repositories are stored by repo key, `provider:host/path` (for example `github:github.com/acme/app`). Config and the action log (`actions.log`, every re-run/cancel/dispatch) live in the service data folder, outside the package.
