@@ -66,7 +66,6 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
     expanded: new Set(),
     toggled: new Set(),
     history: new Map(),
-    idlePages: new Map(),
     historyGen: 0,
     view: { kind: 'list' },
     detail: null,
@@ -167,7 +166,7 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
     onOpenRun: (run) => openRun(run),
     runMenuItems: (run) => app.runMenuItems(run),
     onRunMenu: (run, id) => app.onRunMenu(run, id),
-    onMore: (row, clicked) => void app.loadMore(row, clicked),
+    onMore: (row) => void app.loadMore(row),
   });
 
   function renderTree() {
@@ -211,7 +210,7 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
     refreshAll: () => refreshAll(app),
     updateBadge: () => updateBadge(app),
     resetHistory: () => resetHistory(app),
-    loadMore: (row, clicked) => loadMore(app, row, clicked),
+    loadMore: (row) => loadMore(app, row),
     syncBar: () => bar.sync(),
     renderNotes: () => renderNotes(app),
     renderTree,

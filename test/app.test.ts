@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Run } from '../src/domain/types.ts';
 import type { OverviewRepo, OverviewView } from '../src/service/engine.ts';
-import { loadOverview } from '../src/ui/app/data.ts';
+import { loadMore, loadOverview } from '../src/ui/app/data.ts';
 import { serviceOptions, tabChange } from '../src/ui/app/bar.ts';
 import { runMenuItems, onRunMenu } from '../src/ui/app/runMenu.ts';
 import { providerFor, providerView } from '../src/providers/index.ts';
@@ -60,7 +60,6 @@ const makeApp = (view: OverviewView): { app: App; s: AppState } => {
     scope: SCOPE_MINE,
     actor: '',
     history: new Map(),
-    idlePages: new Map(),
     historyGen: 0,
     detail: null,
     filter: 'attention',
@@ -210,6 +209,29 @@ describe('onRunMenu approve and decline', () => {
     onRunMenu(app, run, 'approve');
     onRunMenu(app, run, 'decline');
     expect(asked).toEqual([[run, 'approve'], [run, 'decline']]);
+  });
+});
+
+describe('loadMore', () => {
+  test('a failed page retries on the next explicit load', async () => {
+    const row = {
+      kind: 'more',
+      key: 'w:github:github.com/acme/app:10',
+      repo: 'github:github.com/acme/app',
+      workflowId: '10',
+      loading: false,
+      error: 'boom',
+    } as const;
+    const { app, s } = makeApp({ providers: [], repos: [], current: null, accounts: [] });
+    let calls = 0;
+    (app as { svc: unknown }).svc = async () => {
+      calls++;
+      return { runs: [], hasMore: false };
+    };
+    s.history.set(row.key, { runs: [], page: 1, hasMore: true, loading: false, error: 'boom' });
+    await loadMore(app, row);
+    expect(calls).toBe(1);
+    expect(s.history.get(row.key)?.error).toBeNull();
   });
 });
 

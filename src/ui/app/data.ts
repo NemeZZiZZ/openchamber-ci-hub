@@ -4,7 +4,7 @@
 import type { GuestProjectsSnapshot } from '@openchamber/sdk';
 import type { OverviewRepo, OverviewView, StateView, WorkflowRunsView } from '../../service/engine.ts';
 import { errorText } from '../port.ts';
-import { counts, inScope, projectKey, scopeBranch, scopeBranches, workflowKey, type MoreRow } from '../treeModel.ts';
+import { counts, projectKey, scopeBranch, workflowKey, type MoreRow } from '../treeModel.ts';
 import type { App } from './state.ts';
 import { restoreCachedOverview, saveCachedOverview } from './overviewCache.ts';
 
@@ -85,13 +85,12 @@ export const applyProjects = (app: App, snapshot: GuestProjectsSnapshot) => {
   void app.loadOverview(s.overview !== null);
 };
 
-/** Older runs of one workflow, a page at a time, when its "more" row comes into view. */
-export const loadMore = async (app: App, row: MoreRow, clicked: boolean) => {
+/** Older runs of one workflow, a page at a time, on an explicit click. */
+export const loadMore = async (app: App, row: MoreRow) => {
   const s = app.s;
   const key = workflowKey(row.repo, row.workflowId);
   const prev = s.history.get(key) ?? { runs: [], page: 0, hasMore: true, loading: false, error: null };
   if (prev.loading || !prev.hasMore) return;
-  if (!clicked && (prev.error || (s.idlePages.get(key) ?? 0) >= 2)) return;
   const gen = s.historyGen;
   s.history.set(key, { ...prev, loading: true, error: null });
   app.renderTree();
@@ -102,10 +101,6 @@ export const loadMore = async (app: App, row: MoreRow, clicked: boolean) => {
       query: { repo: row.repo, workflow: row.workflowId, branch: scopeBranch(s.scope), actor: s.actor || null, page: String(page) },
     });
     if (gen !== s.historyGen) return;
-    const owner = repoView(app, row.repo);
-    const branches = owner ? scopeBranches(owner, s.scope) : null;
-    const added = data.runs.filter((run) => inScope(run, branches, s.actor)).length;
-    s.idlePages.set(key, added > 0 ? 0 : (s.idlePages.get(key) ?? 0) + 1);
     s.history.set(key, { runs: [...prev.runs, ...data.runs], page, hasMore: data.hasMore, loading: false, error: null });
   } catch (err) {
     if (gen !== s.historyGen) return;
@@ -118,5 +113,4 @@ export const loadMore = async (app: App, row: MoreRow, clicked: boolean) => {
 export const resetHistory = (app: App) => {
   app.s.historyGen++;
   app.s.history.clear();
-  app.s.idlePages.clear();
 };

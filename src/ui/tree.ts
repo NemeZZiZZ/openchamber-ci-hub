@@ -13,8 +13,8 @@ export interface TreeCallbacks {
   onOpenRun(run: Run): void;
   runMenuItems(run: Run): MenuItem[];
   onRunMenu(run: Run, id: string): void;
-  /** A "more" row came into view (`clicked` false) or was clicked. */
-  onMore(row: MoreRow, clicked: boolean): void;
+  /** A "more" row was clicked — older runs load only on an explicit click. */
+  onMore(row: MoreRow): void;
 }
 
 export interface Tree {
@@ -77,7 +77,6 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
   const drawn = new Map<string, Drawn>();
   let stickyKey = '';
   let stickyDispose: (() => void) | undefined;
-  const asked = new Set<string>();
 
   const signature = (row: TreeRow): string => {
     const now = Date.now();
@@ -199,7 +198,7 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
             'data-tone': row.error ? 'error' : null,
             disabled: row.loading,
             text,
-            onclick: () => callbacks.onMore(row, true),
+            onclick: () => callbacks.onMore(row),
           }),
         };
       }
@@ -252,10 +251,6 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
       // menu lands shifted inside the row and paints under the rows below.
       item.el.style.top = `${tops[i]}px`;
       item.el.style.height = `${ROW_HEIGHT[row.kind]}px`;
-      if (row.kind === 'more' && !row.loading && !row.error && !asked.has(row.key)) {
-        asked.add(row.key);
-        queueMicrotask(() => callbacks.onMore(row, false));
-      }
     }
     for (const [key, item] of drawn) {
       if (keep.has(key)) continue;
@@ -285,8 +280,6 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
       selected = selectedKey;
       tops = offsets(rows);
       canvas.style.height = `${tops[rows.length]}px`;
-      // A "more" row may ask again once it has finished loading.
-      for (const row of rows) if (row.kind === 'more' && row.loading) asked.delete(row.key);
       draw();
     },
     dispose() {

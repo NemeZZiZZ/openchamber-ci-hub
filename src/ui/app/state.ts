@@ -160,8 +160,6 @@ export interface AppState {
   /** Workflow rows the reader has toggled; their choice outranks the lone-workflow auto-open. */
   toggled: Set<string>;
   history: Map<string, HistoryState>;
-  /** Pages in a row that added nothing in scope; past two the tree stops loading on its own. */
-  idlePages: Map<string, number>;
   historyGen: number;
   view: View;
   detail: Detail | null;
@@ -201,7 +199,7 @@ export interface App {
   refreshAll(): Promise<void>;
   updateBadge(): void;
   resetHistory(): void;
-  loadMore(row: MoreRow, clicked: boolean): Promise<void>;
+  loadMore(row: MoreRow): Promise<void>;
   syncBar(): void;
   renderNotes(): void;
   renderTree(): void;
