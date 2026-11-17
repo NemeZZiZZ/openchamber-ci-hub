@@ -160,7 +160,7 @@ export const handleRequest = async (request: RouteRequest, engine: Engine): Prom
     }
 
     if (method === 'GET' && path === '/handoff') {
-      return ok(await engine.handoff(required(q('repo'), 'repo'), required(q('runId'), 'runId'), q('job') || null));
+      return ok(await engine.handoff(required(q('repo'), 'repo'), required(q('runId'), 'runId'), q('job') || null, q('mode') === 'fix' ? 'fix' : 'read'));
     }
 
     return fail(404, `No route for ${method} ${path}.`);

@@ -1037,7 +1037,7 @@ export const createEngine = (deps: EngineDeps) => {
     followUp(target.key);
   };
 
-  const handoff = async (repo: RepoKey, runId: string, jobId: string | null) => {
+  const handoff = async (repo: RepoKey, runId: string, jobId: string | null, mode: 'read' | 'fix' = 'read') => {
     const { run, jobs } = await runDetail(repo, runId);
     const job = (jobId ? jobs.find((entry) => entry.id === jobId) : null) ?? focusJob(jobs);
     const target = await repoInfo(repo);
@@ -1048,7 +1048,7 @@ export const createEngine = (deps: EngineDeps) => {
       text = window?.text ?? null;
       truncated = window?.truncated ?? false;
     }
-    const built: Handoff = buildHandoff({ run, jobs, job, log: text, logTruncated: truncated });
+    const built: Handoff = buildHandoff({ run, jobs, job, log: text, logTruncated: truncated, mode });
     return { ...built, id: `${run.repo}#${run.id}`, branch: run.branch, sha: run.sha, directory: target.view.directory };
   };
 

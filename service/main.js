@@ -674,7 +674,7 @@ var handoffTitle = (run, job) => {
   return `#${run.number} ${what} ${verdict}`.slice(0, 200);
 };
 var TEXT_LIMIT = 15000;
-var buildHandoff = ({ run, jobs, job, log, logTruncated }) => {
+var buildHandoff = ({ run, jobs, job, log, logTruncated, mode = "read" }) => {
   const step = job ? failingStep(job) : null;
   const duration = runDuration(run);
   const ref = parseRepoKey(run.repo);
@@ -702,6 +702,9 @@ var buildHandoff = ({ run, jobs, job, log, logTruncated }) => {
     lines.push("", `Log excerpt${logTruncated || excerpt.truncated ? " (partial)" : ""}:`, "```", ...excerpt.lines.map((line) => line.replace(/```/g, "'''")), "```");
   } else if (job) {
     lines.push("", "The job log could not be read.");
+  }
+  if (mode === "fix" && job) {
+    lines.push("", "Fix the failure in this job and commit the fix in the current branch. Do not push.");
   }
   let text = lines.join(`
 `);
@@ -4370,7 +4373,7 @@ var createEngine = (deps) => {
     await record("dispatch", target.key, `${workflowId}@${ref}`, () => call(target, (client) => client.dispatch(target.ref, workflowId, ref.trim(), inputs)));
     followUp(target.key);
   };
-  const handoff = async (repo, runId, jobId) => {
+  const handoff = async (repo, runId, jobId, mode = "read") => {
     const { run, jobs } = await runDetail(repo, runId);
     const job = (jobId ? jobs.find((entry) => entry.id === jobId) : null) ?? focusJob(jobs);
     const target = await repoInfo(repo);
@@ -4381,7 +4384,7 @@ var createEngine = (deps) => {
       text = window2?.text ?? null;
       truncated = window2?.truncated ?? false;
     }
-    const built = buildHandoff({ run, jobs, job, log: text, logTruncated: truncated });
+    const built = buildHandoff({ run, jobs, job, log: text, logTruncated: truncated, mode });
     return { ...built, id: `${run.repo}#${run.id}`, branch: run.branch, sha: run.sha, directory: target.view.directory };
   };
   const status = async (directory) => {
@@ -4702,7 +4705,7 @@ var handleRequest = async (request, engine) => {
       return ok({ ok: true });
     }
     if (method === "GET" && path === "/handoff") {
-      return ok(await engine.handoff(required(q("repo"), "repo"), required(q("runId"), "runId"), q("job") || null));
+      return ok(await engine.handoff(required(q("repo"), "repo"), required(q("runId"), "runId"), q("job") || null, q("mode") === "fix" ? "fix" : "read"));
     }
     return fail(404, `No route for ${method} ${path}.`);
   } catch (err) {

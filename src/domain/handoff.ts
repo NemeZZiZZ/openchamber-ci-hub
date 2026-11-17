@@ -29,11 +29,13 @@ export interface HandoffInput {
   /** Raw tail of the focused job's log, when it could be read. */
   log: string | null;
   logTruncated: boolean;
+  /** `read` hands over facts; `fix` also instructs the agent to fix and commit. */
+  mode?: 'read' | 'fix';
 }
 
 const TEXT_LIMIT = 15_000;
 
-export const buildHandoff = ({ run, jobs, job, log, logTruncated }: HandoffInput): Handoff => {
+export const buildHandoff = ({ run, jobs, job, log, logTruncated, mode = 'read' }: HandoffInput): Handoff => {
   const step = job ? failingStep(job) : null;
   const duration = runDuration(run);
   const ref = parseRepoKey(run.repo);
@@ -67,6 +69,9 @@ export const buildHandoff = ({ run, jobs, job, log, logTruncated }: HandoffInput
     );
   } else if (job) {
     lines.push('', 'The job log could not be read.');
+  }
+  if (mode === 'fix' && job) {
+    lines.push('', 'Fix the failure in this job and commit the fix in the current branch. Do not push.');
   }
 
   let text = lines.join('\n');

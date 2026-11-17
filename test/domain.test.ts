@@ -95,6 +95,26 @@ describe('handoff', () => {
     const input = { run: run(), jobs, job: jobs[0]!, log: null, logTruncated: false };
     expect(buildHandoff(input).text).toContain('Repository: github.com/acme/app');
   });
+
+  test('fix mode appends the fix instruction', () => {
+    const jobs = [job({ id: '8', name: 'lint', conclusion: 'success', steps: [] }), job()];
+    const handoff = buildHandoff({ run: run(), jobs, job: jobs[1]!, log: 'FAIL src/parser.test.ts\n', logTruncated: false, mode: 'fix' });
+    expect(handoff.text).toContain('current branch');
+    expect(handoff.text).toContain('Do not push.');
+  });
+
+  test('fix mode without a readable log still instructs', () => {
+    const jobs = [job({ id: '8', name: 'lint', conclusion: 'success', steps: [] }), job()];
+    const handoff = buildHandoff({ run: run(), jobs, job: jobs[1]!, log: null, logTruncated: false, mode: 'fix' });
+    expect(handoff.text).toContain('could not be read');
+    expect(handoff.text).toContain('Do not push.');
+  });
+
+  test('read mode text is unchanged', () => {
+    const jobs = [job({ id: '8', name: 'lint', conclusion: 'success', steps: [] }), job()];
+    const handoff = buildHandoff({ run: run(), jobs, job: jobs[1]!, log: 'FAIL src/parser.test.ts\n', logTruncated: false });
+    expect(handoff.text).not.toContain('Do not push.');
+  });
 });
 
 describe('waits', () => {
