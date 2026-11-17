@@ -32,6 +32,15 @@ jobs:
       # the tag is the source of truth for the published version
       - run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
 
-      - run: npm publish --provenance --access public
+      # A release published by hand leaves this run green instead of failing
+      # with E403 on a version that is already on the registry.
+      - name: Publish to npm
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if npm view "openchamber-ci-hub@${version}" version >/dev/null 2>&1; then
+            echo "openchamber-ci-hub@${version} is already on npm; nothing to publish."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
