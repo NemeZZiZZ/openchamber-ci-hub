@@ -7,6 +7,8 @@
     "panel/page.html",
     "panel/block.html",
     "panel/block.js",
+    "panel/background.html",
+    "panel/background.js",
     "plugin",
     "skills",
     "service/main.js",
@@ -102,6 +104,28 @@
       },
       "instructions": true,
       "skills": "skills",
+      "background": {
+        "entry": "panel/background.html"
+      },
+      "commands": [
+        {
+          "name": "ci-status",
+          "description": "Latest CI run for this folder"
+        },
+        {
+          "name": "ci-fix",
+          "description": "Hand a failing CI run to the agent"
+        }
+      ],
+      "actions": [
+        {
+          "id": "ci-check",
+          "label": "Check CI",
+          "icon": "git-branch-line",
+          "where": "session",
+          "mode": "background"
+        }
+      ],
       "panel": {
         "id": "ci-hub",
         "name": "CI Hub",
@@ -227,7 +251,7 @@
     }
   },
   "scripts": {
-    "build": "bunx openchamber-guest-bundle panel/main.ts panel/main.js && bunx openchamber-guest-bundle panel/block.ts panel/block.js && bunx openchamber-guest-bundle --node service/main.ts service/main.js",
+    "build": "bunx openchamber-guest-bundle panel/main.ts panel/main.js && bunx openchamber-guest-bundle panel/block.ts panel/block.js && bunx openchamber-guest-bundle panel/background.ts panel/background.js && bunx openchamber-guest-bundle --node service/main.ts service/main.js",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
     "check": "bun run typecheck && bun test && bun run build && bunx openchamber-guest-check"
