@@ -31,6 +31,69 @@
       ],
       "marks": true,
       "opencodePlugin": "plugin",
+      "tools": [
+        {
+          "match": "ci_list_runs",
+          "name": "CI runs",
+          "icon": "instance",
+          "title": "CI runs",
+          "subtitle": "{input.repo}{input.directory}",
+          "output": "card",
+          "card": {
+            "title": "{output.workflow} #{output.number}",
+            "status": {
+              "value": "{output.conclusion}",
+              "tones": { "success": "success", "failure": "error", "timed_out": "error", "cancelled": "warning", "action_required": "warning" }
+            },
+            "fields": [
+              { "label": "Branch", "value": "{output.branch}" },
+              { "label": "Commit", "value": "{output.sha}" }
+            ],
+            "link": { "label": "Open run", "url": "{output.url}" }
+          }
+        },
+        {
+          "match": "ci_run_detail",
+          "name": "CI run",
+          "icon": "instance",
+          "title": "{input.repo}",
+          "output": "card",
+          "card": {
+            "title": "{output.workflow} #{output.number}",
+            "status": {
+              "value": "{output.conclusion}",
+              "tones": { "success": "success", "failure": "error", "timed_out": "error", "cancelled": "warning", "action_required": "warning" }
+            },
+            "fields": [
+              { "label": "Branch", "value": "{output.branch}" },
+              { "label": "Commit", "value": "{output.sha}" },
+              { "label": "Attempt", "value": "{output.attempt}" },
+              { "label": "Failing step", "value": "{output.jobs.0.failingStep}" }
+            ],
+            "link": { "label": "Open run", "url": "{output.url}" }
+          }
+        },
+        {
+          "match": "ci_failing_log",
+          "name": "CI failing log",
+          "icon": "instance",
+          "title": "Failing log · {output.job.name}",
+          "output": "code",
+          "language": "text"
+        },
+        {
+          "match": "ci_rerun",
+          "name": "CI re-run",
+          "icon": "instance",
+          "title": "Re-run failed jobs",
+          "output": "card",
+          "card": {
+            "title": "{output.repo}",
+            "status": { "value": "{output.ok}", "tones": { "true": "success", "false": "error" } },
+            "fields": [{ "label": "Run id", "value": "{output.runId}" }]
+          }
+        }
+      ],
       "sessionEvents": {
         "events": [
           "turn-finished"

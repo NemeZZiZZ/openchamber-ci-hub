@@ -87,7 +87,7 @@ describe('OpenCode plugin', () => {
     const post = requests.find((r) => r.method === 'POST')!;
     expect(post.url).toContain('/action');
     expect(post.body).toEqual({ kind: 'rerun-failed', repo: 'github:github.com/acme/app', runId: '100' });
-    expect(JSON.parse(text(result))).toMatchObject({ ok: true });
+    expect(JSON.parse(text(result))).toMatchObject({ ok: true, repo: 'github:github.com/acme/app', runId: '100' });
   });
 
   test('ci_failing_log passes the job and reports the cap in its description', async () => {

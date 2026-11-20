@@ -77,7 +77,7 @@ export default {
           execute: (args) =>
             respond(async () => {
               const result = await ask('POST', '/action', {}, { kind: 'rerun-failed', repo: args.repo, runId: args.runId });
-              return { ...result, hint: 'Re-run requested. Check the run again with ci_run_detail in a minute.' };
+              return { ...result, repo: args.repo, runId: args.runId, hint: 'Re-run requested. Check the run again with ci_run_detail in a minute.' };
             }),
         },
       },
