@@ -4960,7 +4960,9 @@ var createEngine = (deps) => {
   };
   return {
     start: () => {
-      pollAll().finally(reschedule);
+      getPrefs().catch(() => {
+        return;
+      }).then(() => pollAll()).finally(reschedule);
     },
     getPrefs,
     setPrefs,
@@ -5271,9 +5273,7 @@ var engine = createEngine({
     });
   },
   ...host ? {
-    setMark: (target, mark) => host.setMark(target, mark).catch(() => {
-      return;
-    })
+    setMark: (target, mark) => host.setMark(target, mark)
   } : {}
 });
 var readBody = (req) => new Promise((resolve, reject) => {
@@ -5322,11 +5322,10 @@ server.listen(port, "127.0.0.1", () => {
 });
 var shutdown = () => {
   engine.stop();
+  setTimeout(() => process.exit(0), 2000).unref();
   removeEndpoint(home, process.pid).catch(() => {
     return;
-  });
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 2000).unref();
+  }).then(() => server.close(() => process.exit(0)));
 };
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);

@@ -1395,7 +1395,11 @@ export const createEngine = (deps: EngineDeps) => {
 
   return {
     start: () => {
-      void pollAll().finally(reschedule);
+      // Prefs first: a persisted marks:false must not cost an idle-poll cycle.
+      void getPrefs()
+        .catch(() => undefined)
+        .then(() => pollAll())
+        .finally(reschedule);
     },
     getPrefs,
     setPrefs,

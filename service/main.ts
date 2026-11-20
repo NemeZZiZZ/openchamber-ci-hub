@@ -88,8 +88,8 @@ const engine = createEngine({
   },
   ...(host
     ? {
-        setMark: (target: ServiceMarkTarget, mark: ServiceMark | null) =>
-          host.setMark(target, mark).catch(() => undefined),
+        // A refusal must reach the mark sync: it retries what the host did not take.
+        setMark: (target: ServiceMarkTarget, mark: ServiceMark | null) => host.setMark(target, mark),
       }
     : {}),
 });
@@ -152,9 +152,10 @@ server.listen(port, '127.0.0.1', () => {
 
 const shutdown = () => {
   engine.stop();
-  void removeEndpoint(home, process.pid).catch(() => undefined);
-  server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2_000).unref();
+  void removeEndpoint(home, process.pid)
+    .catch(() => undefined)
+    .then(() => server.close(() => process.exit(0)));
 };
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
