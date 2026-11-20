@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { createServiceHost } from '@openchamber/sdk';
 import { createFileAudit, createFileConfigStore } from '../src/service/configStore.ts';
 import { createFilePrefsStore } from '../src/service/prefs.ts';
+import type { ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
 import { createEngine, type ExecResult } from '../src/service/engine.ts';
 import { handleRequest } from '../src/service/routes.ts';
 
@@ -83,6 +84,12 @@ const engine = createEngine({
   needsConfiguration: (message) => {
     host?.needsConfiguration(message).catch(() => undefined);
   },
+  ...(host
+    ? {
+        setMark: (target: ServiceMarkTarget, mark: ServiceMark | null) =>
+          host.setMark(target, mark).catch(() => undefined),
+      }
+    : {}),
 });
 
 const readBody = (req: IncomingMessage): Promise<string> =>

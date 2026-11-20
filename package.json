@@ -25,6 +25,7 @@
         "prompt",
         "sessions"
       ],
+      "marks": true,
       "panel": {
         "id": "ci-hub",
         "name": "CI Hub",
@@ -48,6 +49,7 @@
       "service": {
         "entry": "service/main.js",
         "runtime": "host",
+        "keepRunning": true,
         "permissions": {
           "exec": [
             "git",

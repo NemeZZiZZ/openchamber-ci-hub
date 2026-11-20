@@ -1,9 +1,9 @@
 // service/main.ts
 import { execFile } from "node:child_process";
-import { readFile as readFile2 } from "node:fs/promises";
+import { readFile as readFile3 } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { join as join2 } from "node:path";
+import { join as join3 } from "node:path";
 // node_modules/@openchamber/sdk/dist/scrollbar-style.js
 var GUEST_SCROLLING_ATTRIBUTE = "data-oc-scrolling";
 var GUEST_SCROLLBAR_CSS = `
@@ -425,6 +425,50 @@ var createFileAudit = (dir) => async (entry) => {
     await appendFile(path, `${JSON.stringify(entry)}
 `, { mode: 384 });
   } catch {}
+};
+
+// src/service/prefs.ts
+import { mkdir as mkdir2, readFile as readFile2, rename as rename2, writeFile as writeFile2 } from "node:fs/promises";
+import { join as join2 } from "node:path";
+var DEFAULT_PREFS = { marks: true, toastOnTurnFailure: true };
+var parsePrefs = (raw) => {
+  if (!raw)
+    return { ...DEFAULT_PREFS };
+  try {
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return { ...DEFAULT_PREFS };
+    const record = value;
+    return {
+      marks: typeof record.marks === "boolean" ? record.marks : DEFAULT_PREFS.marks,
+      toastOnTurnFailure: typeof record.toastOnTurnFailure === "boolean" ? record.toastOnTurnFailure : DEFAULT_PREFS.toastOnTurnFailure
+    };
+  } catch {
+    return { ...DEFAULT_PREFS };
+  }
+};
+var createFilePrefsStore = (dir) => {
+  const path = join2(dir, "prefs.json");
+  let cached = null;
+  return {
+    async load() {
+      if (cached)
+        return { ...cached };
+      const raw = await readFile2(path, "utf8").catch(() => {
+        return;
+      });
+      cached = parsePrefs(raw);
+      return { ...cached };
+    },
+    async save(prefs) {
+      await mkdir2(dir, { recursive: true });
+      const tmp = `${path}.${process.pid}.tmp`;
+      await writeFile2(tmp, `${JSON.stringify(prefs, null, 2)}
+`, { mode: 384 });
+      await rename2(tmp, path);
+      cached = { ...prefs };
+    }
+  };
 };
 
 // src/domain/format.ts
@@ -3550,6 +3594,82 @@ var resolveToken = async (deps, provider, host) => {
 };
 var sourceLabel = (source, provider) => source === "openchamber" ? "OpenChamber account" : source === "setting" ? "token on the CI Hub card" : `${provider.cli?.program ?? provider.label} CLI`;
 
+// src/service/marks.ts
+var latestOnBranch = (runs, branch) => {
+  const candidates = branch === null ? runs : runs.filter((run) => run.branch === branch);
+  let latest = null;
+  for (const run of candidates)
+    if (!latest || run.createdAt > latest.createdAt)
+      latest = run;
+  return latest;
+};
+var markFor = (run) => {
+  if (!run)
+    return null;
+  if (isFailed(run)) {
+    return { icon: "error-warning-line", tone: "error", text: `CI failed · ${run.workflow} #${run.number}` };
+  }
+  if (isActive(run)) {
+    return { icon: "loader-4-line", tone: "info", text: `CI running · ${run.workflow} #${run.number}` };
+  }
+  return null;
+};
+var targetOf2 = (row) => row.branch ? { directory: row.directory, branch: row.branch } : { directory: row.directory };
+var createMarkSync = (deps) => {
+  const max = deps.maxPerMinute ?? 60;
+  const current = new Map;
+  let windowStart = 0;
+  let used = 0;
+  const write = async (target, mark) => {
+    const t = Date.now();
+    if (t - windowStart >= 60000) {
+      windowStart = t;
+      used = 0;
+    }
+    if (used >= max)
+      return false;
+    used += 1;
+    await deps.setMark(target, mark).catch(() => {
+      return;
+    });
+    return true;
+  };
+  const clear = async () => {
+    for (const [key, entry] of current) {
+      if (!await write(entry.target, null))
+        break;
+      current.delete(key);
+    }
+  };
+  return {
+    clear,
+    async sync(rows) {
+      const desired = new Map;
+      for (const row of rows) {
+        const mark = markFor(latestOnBranch(row.runs, row.branch));
+        if (!mark)
+          continue;
+        desired.set(`${row.directory}\x00${row.branch ?? ""}`, { target: targetOf2(row), mark });
+      }
+      for (const [key, entry] of current) {
+        if (desired.has(key))
+          continue;
+        if (!await write(entry.target, null))
+          return;
+        current.delete(key);
+      }
+      for (const [key, entry] of desired) {
+        const prev = current.get(key);
+        if (prev && JSON.stringify(prev.mark) === JSON.stringify(entry.mark))
+          continue;
+        if (!await write(entry.target, entry.mark))
+          return;
+        current.set(key, entry);
+      }
+    }
+  };
+};
+
 // src/service/engine.ts
 class EngineError extends Error {
   status;
@@ -3560,6 +3680,7 @@ class EngineError extends Error {
 }
 var POLL_FAST_MS = 20000;
 var POLL_SLOW_MS = 180000;
+var POLL_IDLE_MS = 60000;
 var PANEL_WINDOW_MS = 75000;
 var STATUS_WINDOW_MS = 60000;
 var RECENT_MS = 60 * 60000;
@@ -3640,7 +3761,7 @@ var createEngine = (deps) => {
       origin
     };
   };
-  const targetOf2 = (view) => {
+  const targetOf3 = (view) => {
     const ref = parseRepoKey(view.key);
     const provider = providerFor(ref.provider);
     return { key: view.key, ref, provider, account: accountOf(provider, ref.host), view };
@@ -3954,7 +4075,7 @@ var createEngine = (deps) => {
     if (!key)
       throw new EngineError("Unknown repository.");
     const known2 = repos.find((repo) => repoKeyId(repo.key) === repoKeyId(key));
-    return targetOf2(known2 ?? viewOf(key, null, true, "manual"));
+    return targetOf3(known2 ?? viewOf(key, null, true, "manual"));
   };
   const addRepo = async (input, directory = null) => {
     const key = await resolveInput(input.trim());
@@ -3962,7 +4083,7 @@ var createEngine = (deps) => {
       throw new EngineError("Enter the repository as owner/name, a repository URL or a CI Hub repo key.");
     const config = await deps.config.load();
     const existing = config.repos.find((repo) => repoKeyId(repo.key) === repoKeyId(key));
-    const target = targetOf2(viewOf(existing?.key ?? key, null, true, "manual"));
+    const target = targetOf3(viewOf(existing?.key ?? key, null, true, "manual"));
     await record("add-repo", target.key, directory ?? input.trim(), async () => {
       await call(target, (client) => client.defaultBranch(target.ref));
       if (existing)
@@ -4029,17 +4150,19 @@ var createEngine = (deps) => {
     const t = now();
     const due = new Map;
     const repos = await listRepos();
-    if (t - panelSeenAt < PANEL_WINDOW_MS) {
+    const panelOpen = t - panelSeenAt < PANEL_WINDOW_MS;
+    const statusOpen = t - statusSeenAt < STATUS_WINDOW_MS;
+    if (panelOpen) {
       for (const repo of repos) {
         if (!repo.enabled)
           continue;
         const slot = slotFor(repo.key);
         const hot = slot.polledAt === null || busy(slot) || panelRepos.has(repoKeyId(repo.key));
         if (hot || t - slot.polledAt >= POLL_SLOW_MS)
-          due.set(repoKeyId(repo.key), targetOf2(repo));
+          due.set(repoKeyId(repo.key), targetOf3(repo));
       }
     }
-    if (t - statusSeenAt < STATUS_WINDOW_MS) {
+    if (statusOpen) {
       for (const key of statusRepos) {
         const slot = slotFor(key);
         if (slot.polledAt !== null && t - slot.polledAt < POLL_SLOW_MS - 2000)
@@ -4047,6 +4170,16 @@ var createEngine = (deps) => {
         const target = await repoInfo(key).catch(() => null);
         if (target)
           due.set(repoKeyId(target.key), target);
+      }
+    }
+    if (!panelOpen && !statusOpen && (prefsCache?.marks ?? true)) {
+      for (const repo of repos) {
+        if (!repo.enabled)
+          continue;
+        const slot = slotFor(repo.key);
+        const hot = slot.polledAt === null || busy(slot);
+        if (hot || t - slot.polledAt >= POLL_SLOW_MS)
+          due.set(repoKeyId(repo.key), targetOf3(repo));
       }
     }
     return [...due.values()];
@@ -4057,6 +4190,8 @@ var createEngine = (deps) => {
       return POLL_FAST_MS;
     if (t - statusSeenAt < STATUS_WINDOW_MS)
       return POLL_SLOW_MS;
+    if (prefsCache?.marks ?? true)
+      return POLL_IDLE_MS;
     return null;
   };
   const pollAll = async () => {
@@ -4068,10 +4203,39 @@ var createEngine = (deps) => {
           continue;
         await pollRepo(target.key);
       }
+      await refreshMarks().catch(() => {
+        return;
+      });
     })().finally(() => {
       polling = null;
     });
     return polling;
+  };
+  const extraDirs = new Set;
+  let markSync = null;
+  const refreshMarks = async () => {
+    if (!deps.setMark)
+      return;
+    markSync ??= createMarkSync({ setMark: deps.setMark });
+    if (!(await getPrefs()).marks) {
+      await markSync.clear();
+      return;
+    }
+    const config = await deps.config.load();
+    const dirs = new Set(extraDirs);
+    for (const repo of config.repos)
+      if (repo.enabled && repo.directory)
+        dirs.add(repo.directory);
+    for (const dir of Object.keys(config.directoryMap))
+      dirs.add(dir);
+    const rows = [];
+    for (const directory of dirs) {
+      const found = await repoForDirectory(directory).catch(() => null);
+      if (!found)
+        continue;
+      rows.push({ directory, branch: found.branch, runs: slotFor(found.key).runs });
+    }
+    await markSync.sync(rows);
   };
   function reschedule() {
     const every = interval();
@@ -4163,7 +4327,7 @@ var createEngine = (deps) => {
         owners.set(id, { project, branch: repo?.branch ?? null });
     }
     const views = (await listRepos(config)).filter((repo) => repo.enabled);
-    const targets = views.map(targetOf2);
+    const targets = views.map(targetOf3);
     const accounts = await accountsFor(views);
     const currentView = views.find((repo) => repoKeyId(repo.key) === repoKeyId(current ?? ""));
     const empty = targets.filter((target) => slotFor(target.key).polledAt === null && auths.get(target.account)?.ok && !blockOf(target.account));
@@ -4545,12 +4709,39 @@ var createEngine = (deps) => {
       results.push(await checkOne(wait.id, wait.state));
     return results;
   };
+  let prefsCache = null;
+  const getPrefs = async () => {
+    if (!prefsCache)
+      prefsCache = await deps.prefs.load();
+    return { ...prefsCache };
+  };
+  const setPrefs = async (patch) => {
+    const next = await getPrefs();
+    if (typeof patch.marks === "boolean")
+      next.marks = patch.marks;
+    if (typeof patch.toastOnTurnFailure === "boolean")
+      next.toastOnTurnFailure = patch.toastOnTurnFailure;
+    await deps.prefs.save(next);
+    prefsCache = next;
+    reschedule();
+    await refreshMarks().catch(() => {
+      return;
+    });
+    return { ...next };
+  };
   const stop = () => {
     if (loop)
       timers.clear(loop);
     loop = null;
   };
   return {
+    start: () => {
+      pollAll().finally(reschedule);
+    },
+    getPrefs,
+    setPrefs,
+    refreshMarks,
+    extraDirs,
     state,
     overview,
     workflowRuns,
@@ -4621,6 +4812,10 @@ var handleRequest = async (request, engine) => {
   try {
     if (method === "GET" && path === "/health")
       return ok({ ok: true, ...engine.debug() });
+    if (method === "GET" && path === "/prefs")
+      return ok(await engine.getPrefs());
+    if (method === "PUT" && path === "/prefs")
+      return ok(await engine.setPrefs(readJson(request.body)));
     if (path === WAITS_START_PATH && method === "POST") {
       const parsed = readWaitStartRequest(request.body);
       if (!parsed)
@@ -4721,8 +4916,8 @@ if (!Number.isInteger(port) || port <= 0 || !token) {
   process.exit(1);
 }
 var home = homedir();
-var dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join2(home, ".openchamber-ci-hub");
-var storePath = join2(home, ".config", "openchamber", "source-control-auth.json");
+var dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join3(home, ".openchamber-ci-hub");
+var storePath = join3(home, ".config", "openchamber", "source-control-auth.json");
 var MAX_BODY_BYTES = 256 * 1024;
 var host = process.env.OPENCHAMBER_HOST_CALLBACK_URL ? createServiceHost({ env: process.env }) : null;
 var run = (program, args, cwd) => new Promise((resolve) => {
@@ -4748,7 +4943,7 @@ var cliToken = async (program, args) => {
 var warnedStore = false;
 var readStore = async () => {
   try {
-    return await readFile2(storePath, "utf8");
+    return await readFile3(storePath, "utf8");
   } catch (err) {
     if (err.code !== "ENOENT" && !warnedStore) {
       warnedStore = true;
@@ -4759,6 +4954,7 @@ var readStore = async () => {
 };
 var engine = createEngine({
   config: createFileConfigStore(dataDir),
+  prefs: createFilePrefsStore(dataDir),
   audit: createFileAudit(dataDir),
   auth: {
     readStore,
@@ -4776,7 +4972,12 @@ var engine = createEngine({
     host?.needsConfiguration(message).catch(() => {
       return;
     });
-  }
+  },
+  ...host ? {
+    setMark: (target, mark) => host.setMark(target, mark).catch(() => {
+      return;
+    })
+  } : {}
 });
 var readBody = (req) => new Promise((resolve, reject) => {
   const chunks = [];
@@ -4816,6 +5017,7 @@ server.on("error", (err) => {
 });
 server.listen(port, "127.0.0.1", () => {
   console.log(`[ci-hub] listening on 127.0.0.1:${port}`);
+  engine.start();
 });
 var shutdown = () => {
   engine.stop();

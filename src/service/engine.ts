@@ -31,8 +31,9 @@ import { knownInstances, resolveToken, serverOf, sourceLabel, type AuthDeps } fr
 
 import type { ServerRepo } from '../providers/types.ts';
 import type { AuditEntry, ConfigStore } from './configStore.ts';
+import { createMarkSync } from './marks.ts';
 import type { Prefs, PrefsStore } from './prefs.ts';
-import type { GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue } from '@openchamber/sdk';
+import type { GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue, ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
 
 export interface ExecResult {
   code: number;
@@ -50,6 +51,7 @@ export interface EngineDeps {
   git: (args: string[], cwd: string) => Promise<ExecResult>;
   emit: (topic: string, data?: JsonValue) => void;
   needsConfiguration: (message: string | null) => void;
+  setMark?: (target: ServiceMarkTarget, mark: ServiceMark | null) => Promise<unknown>;
   now?: () => number;
   timers?: { set: (fn: () => void, ms: number) => unknown; clear: (handle: unknown) => void };
 }
@@ -723,10 +725,36 @@ export const createEngine = (deps: EngineDeps) => {
         if (blockOf(target.account)) continue;
         await pollRepo(target.key);
       }
+      await refreshMarks().catch(() => undefined);
     })().finally(() => {
       polling = null;
     });
     return polling;
+  };
+
+  // Directories that asked for a mark beyond the configured repos: session
+  // events add theirs here, so a project never opened in the panel still gets one.
+  const extraDirs = new Set<string>();
+  let markSync: ReturnType<typeof createMarkSync> | null = null;
+
+  const refreshMarks = async (): Promise<void> => {
+    if (!deps.setMark) return;
+    markSync ??= createMarkSync({ setMark: deps.setMark });
+    if (!(await getPrefs()).marks) {
+      await markSync.clear();
+      return;
+    }
+    const config = await deps.config.load();
+    const dirs = new Set<string>(extraDirs);
+    for (const repo of config.repos) if (repo.enabled && repo.directory) dirs.add(repo.directory);
+    for (const dir of Object.keys(config.directoryMap)) dirs.add(dir);
+    const rows = [];
+    for (const directory of dirs) {
+      const found = await repoForDirectory(directory).catch(() => null);
+      if (!found) continue;
+      rows.push({ directory, branch: found.branch, runs: slotFor(found.key).runs });
+    }
+    await markSync.sync(rows);
   };
 
   function reschedule() {
@@ -1258,6 +1286,7 @@ export const createEngine = (deps: EngineDeps) => {
     await deps.prefs.save(next);
     prefsCache = next;
     reschedule();
+    await refreshMarks().catch(() => undefined);
     return { ...next };
   };
 
@@ -1272,6 +1301,8 @@ export const createEngine = (deps: EngineDeps) => {
     },
     getPrefs,
     setPrefs,
+    refreshMarks,
+    extraDirs,
     state,
     overview,
     workflowRuns,
