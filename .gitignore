@@ -37,3 +37,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .superpowers
 .mimosa
 deploy
+docs/superpowers/
