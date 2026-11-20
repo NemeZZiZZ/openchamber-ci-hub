@@ -522,9 +522,9 @@ export const createEngine = (deps: EngineDeps) => {
 
   // ---- repositories -----------------------------------------------------
 
-  const detect = async (directory: string): Promise<Detected> => {
+  const detect = async (directory: string, fresh = false): Promise<Detected> => {
     const cached = detected.get(directory);
-    if (cached && now() - cached.at < 60_000) return cached.value;
+    if (!fresh && cached && now() - cached.at < 60_000) return cached.value;
     const remote = await deps.git(['remote', 'get-url', 'origin'], directory).catch(() => null);
     const remoteUrl = remote && remote.code === 0 ? remote.stdout.trim() : null;
     let key: RepoKey | null | 'pending' = null;
@@ -570,11 +570,14 @@ export const createEngine = (deps: EngineDeps) => {
   };
 
   /** The repository for a folder: a manual mapping wins over the git remote. */
-  const repoForDirectory = async (directory: string | null): Promise<{ key: RepoKey; branch: string | null } | null> => {
+  const repoForDirectory = async (
+    directory: string | null,
+    fresh = false,
+  ): Promise<{ key: RepoKey; branch: string | null } | null> => {
     if (!directory) return null;
     const config = await deps.config.load();
     const mapped = config.directoryMap[directory];
-    const found = await detect(directory);
+    const found = await detect(directory, fresh);
     if (mapped) return { key: mapped, branch: found?.branch ?? null };
     if (!found) return null;
     if (!config.repos.some((entry) => repoKeyId(entry.key) === repoKeyId(found.key))) {
@@ -753,6 +756,16 @@ export const createEngine = (deps: EngineDeps) => {
   // Directories that asked for a mark beyond the configured repos: session
   // events add theirs here, so a project never opened in the panel still gets one.
   const extraDirs = new Set<string>();
+  // A Set keeps insertion order too; re-adding moves an entry to the newest end.
+  const remember = (set: Set<string>, value: string): void => {
+    set.delete(value);
+    set.add(value);
+    while (set.size > CACHE_CAP) {
+      const oldest = set.values().next().value;
+      if (oldest === undefined) break;
+      set.delete(oldest);
+    }
+  };
   let markSync: ReturnType<typeof createMarkSync> | null = null;
 
   const refreshMarks = async (): Promise<void> => {
@@ -787,8 +800,9 @@ export const createEngine = (deps: EngineDeps) => {
     if (request.event.type !== 'turn-finished' && request.event.type !== 'turn-failed') return { ok: true };
     const directory = request.event.project?.directory ?? null;
     if (!directory) return { ok: true };
-    extraDirs.add(directory);
-    const found = await repoForDirectory(directory).catch(() => null);
+    remember(extraDirs, directory);
+    // The turn may have switched branches: the cached branch cannot be trusted.
+    const found = await repoForDirectory(directory, true).catch(() => null);
     if (!found) return { ok: true };
     const fresh = await pollRepo(found.key).catch(() => false);
     await refreshMarks().catch(() => undefined);
@@ -798,7 +812,7 @@ export const createEngine = (deps: EngineDeps) => {
     if (!run || !isFailed(run)) return { ok: true };
     const key = `${run.repo}#${run.id}:${run.attempt}`;
     if (notifiedTurns.has(key)) return { ok: true };
-    notifiedTurns.add(key);
+    remember(notifiedTurns, key);
     if ((await getPrefs()).toastOnTurnFailure) {
       deps.emit('turn-ci', {
         directory,
@@ -1355,16 +1369,19 @@ export const createEngine = (deps: EngineDeps) => {
     repo?: string | undefined;
     branch?: string | undefined;
     limit?: number | undefined;
+    scope?: 'branch' | undefined;
   }) => {
     const found = args.repo
       ? { key: args.repo, branch: null }
-      : await repoForDirectory(args.directory ?? null);
+      : await repoForDirectory(args.directory ?? null, args.scope === 'branch');
     if (!found) return null;
+    // `scope: branch` means the folder's own branch; a detached HEAD has none.
+    const branch = args.branch ?? (args.scope === 'branch' ? found.branch : null);
     const fresh = await pollRepo(found.key);
     if (!fresh) {
       throw new EngineError(slotFor(found.key).error ?? 'The CI provider is rate-limited right now; no fresh data.', 502);
     }
-    const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
+    const runs = slotFor(found.key).runs.filter((run) => !branch || run.branch === branch);
     return agentRunsView(runs, args.limit);
   };
 

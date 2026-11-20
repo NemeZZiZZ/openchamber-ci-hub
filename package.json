@@ -45,8 +45,8 @@
           "card": {
             "title": "{output.workflow} #{output.number}",
             "status": {
-              "value": "{output.conclusion}",
-              "tones": { "success": "success", "failure": "error", "timed_out": "error", "cancelled": "warning", "action_required": "warning" }
+              "value": "{output.state}",
+              "tones": { "success": "success", "failure": "error", "timed_out": "error", "startup_failure": "error", "cancelled": "warning", "action_required": "warning", "in_progress": "info", "queued": "info", "waiting": "info", "requested": "info", "pending": "info" }
             },
             "fields": [
               { "label": "Branch", "value": "{output.branch}" },
@@ -64,8 +64,8 @@
           "card": {
             "title": "{output.workflow} #{output.number}",
             "status": {
-              "value": "{output.conclusion}",
-              "tones": { "success": "success", "failure": "error", "timed_out": "error", "cancelled": "warning", "action_required": "warning" }
+              "value": "{output.state}",
+              "tones": { "success": "success", "failure": "error", "timed_out": "error", "startup_failure": "error", "cancelled": "warning", "action_required": "warning", "in_progress": "info", "queued": "info", "waiting": "info", "requested": "info", "pending": "info" }
             },
             "fields": [
               { "label": "Branch", "value": "{output.branch}" },

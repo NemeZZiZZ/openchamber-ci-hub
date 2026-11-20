@@ -17,6 +17,8 @@ export interface AgentRun {
   sha: string;
   status: RunStatus;
   conclusion: Conclusion;
+  /** The conclusion once there is one, the status before that: one value a card can badge. */
+  state: string;
   attempt: number;
   url: string;
   durationMs: number | null;
@@ -32,6 +34,7 @@ export const agentRunView = (run: Run): AgentRun => ({
   sha: run.sha,
   status: run.status,
   conclusion: run.conclusion,
+  state: run.conclusion ?? run.status,
   attempt: run.attempt,
   url: run.url,
   durationMs: run.startedAt !== null && run.finishedAt !== null ? run.finishedAt - run.startedAt : null,

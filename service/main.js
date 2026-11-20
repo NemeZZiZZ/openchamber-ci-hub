@@ -3795,6 +3795,7 @@ var agentRunView = (run) => ({
   sha: run.sha,
   status: run.status,
   conclusion: run.conclusion,
+  state: run.conclusion ?? run.status,
   attempt: run.attempt,
   url: run.url,
   durationMs: run.startedAt !== null && run.finishedAt !== null ? run.finishedAt - run.startedAt : null,
@@ -4147,9 +4148,9 @@ var createEngine = (deps) => {
       return { provider: provider.id, host, label: provider.label, ...auth, rateLimit: rate ? { ...rate } : null };
     }));
   };
-  const detect = async (directory) => {
+  const detect = async (directory, fresh = false) => {
     const cached = detected.get(directory);
-    if (cached && now() - cached.at < 60000)
+    if (!fresh && cached && now() - cached.at < 60000)
       return cached.value;
     const remote = await deps.git(["remote", "get-url", "origin"], directory).catch(() => null);
     const remoteUrl = remote && remote.code === 0 ? remote.stdout.trim() : null;
@@ -4193,12 +4194,12 @@ var createEngine = (deps) => {
     }
     return [...out.values()];
   };
-  const repoForDirectory = async (directory) => {
+  const repoForDirectory = async (directory, fresh = false) => {
     if (!directory)
       return null;
     const config = await deps.config.load();
     const mapped = config.directoryMap[directory];
-    const found = await detect(directory);
+    const found = await detect(directory, fresh);
     if (mapped)
       return { key: mapped, branch: found?.branch ?? null };
     if (!found)
@@ -4367,6 +4368,16 @@ var createEngine = (deps) => {
     return polling;
   };
   const extraDirs = new Set;
+  const remember = (set, value) => {
+    set.delete(value);
+    set.add(value);
+    while (set.size > CACHE_CAP) {
+      const oldest = set.values().next().value;
+      if (oldest === undefined)
+        break;
+      set.delete(oldest);
+    }
+  };
   let markSync = null;
   const refreshMarks = async () => {
     if (!deps.setMark)
@@ -4399,8 +4410,8 @@ var createEngine = (deps) => {
     const directory = request.event.project?.directory ?? null;
     if (!directory)
       return { ok: true };
-    extraDirs.add(directory);
-    const found = await repoForDirectory(directory).catch(() => null);
+    remember(extraDirs, directory);
+    const found = await repoForDirectory(directory, true).catch(() => null);
     if (!found)
       return { ok: true };
     const fresh = await pollRepo(found.key).catch(() => false);
@@ -4415,7 +4426,7 @@ var createEngine = (deps) => {
     const key = `${run.repo}#${run.id}:${run.attempt}`;
     if (notifiedTurns.has(key))
       return { ok: true };
-    notifiedTurns.add(key);
+    remember(notifiedTurns, key);
     if ((await getPrefs()).toastOnTurnFailure) {
       deps.emit("turn-ci", {
         directory,
@@ -4923,14 +4934,15 @@ var createEngine = (deps) => {
     return { ...next };
   };
   const agentRuns = async (args) => {
-    const found = args.repo ? { key: args.repo, branch: null } : await repoForDirectory(args.directory ?? null);
+    const found = args.repo ? { key: args.repo, branch: null } : await repoForDirectory(args.directory ?? null, args.scope === "branch");
     if (!found)
       return null;
+    const branch = args.branch ?? (args.scope === "branch" ? found.branch : null);
     const fresh = await pollRepo(found.key);
     if (!fresh) {
       throw new EngineError(slotFor(found.key).error ?? "The CI provider is rate-limited right now; no fresh data.", 502);
     }
-    const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
+    const runs = slotFor(found.key).runs.filter((run) => !branch || run.branch === branch);
     return agentRunsView(runs, args.limit);
   };
   const agentRun = async (repo, runId) => {
@@ -5158,6 +5170,7 @@ var handleRequest = async (request, engine) => {
         directory: q("directory") || undefined,
         repo: q("repo") || undefined,
         branch: q("branch") || undefined,
+        scope: q("scope") === "branch" ? "branch" : undefined,
         limit: rawLimit ? Number(rawLimit) : undefined
       });
       if (!view) {

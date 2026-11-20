@@ -69,11 +69,20 @@ describe('agentRunsView', () => {
       sha: 'abc',
       status: 'completed',
       conclusion: 'failure',
+      state: 'failure',
       attempt: 1,
       url: 'https://example.invalid/run/100',
       durationMs: 60_000,
       finishedAt: 61_000,
     });
+  });
+});
+
+describe('agentRunsView state', () => {
+  test('state is the conclusion, or the status while a run has none', () => {
+    const [active, done] = agentRunsView([run({ id: '2', createdAt: 2, status: 'in_progress', conclusion: null }), run()]).items;
+    expect(active!.state).toBe('in_progress');
+    expect(done!.state).toBe('failure');
   });
 });
 
@@ -212,5 +221,58 @@ describe('agent routes', () => {
       }),
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe('agentRuns on the current branch', () => {
+  const sess = (branch: string) => {
+    const runs = [
+      { ...rawFor(1, 'main', 1), },
+      { ...rawFor(2, 'feature', 2) },
+    ];
+    return createEngine({
+      config: createMemoryConfigStore({ version: 2, repos: [{ key: KEY, enabled: true, addedAt: 0 }], directoryMap: {} }),
+      prefs: createMemoryPrefsStore(),
+      audit: async () => undefined,
+      auth: { readStore: async () => undefined, readSettings: async () => ({}), cliToken: async () => 't' },
+      fetch: async (url) =>
+        new URL(url).pathname.endsWith('/actions/runs') ? Response.json({ workflow_runs: runs }) : Response.json({ default_branch: 'main' }),
+      git: async (args) =>
+        args[0] === 'remote'
+          ? { code: 0, stdout: 'git@github.com:acme/app.git\n', stderr: '' }
+          : { code: 0, stdout: `${branch}\n`, stderr: '' },
+      emit: () => undefined,
+      needsConfiguration: () => undefined,
+      timers: { set: () => 0, clear: () => undefined },
+    });
+  };
+  const rawFor = (id: number, branch: string, minute: number) => ({
+    id,
+    run_number: id,
+    name: 'CI',
+    workflow_id: 3,
+    head_branch: branch,
+    head_sha: 'abc',
+    display_title: 'Commit',
+    event: 'push',
+    run_attempt: 1,
+    status: 'completed',
+    conclusion: 'failure',
+    created_at: `2026-11-14T10:0${minute}:00Z`,
+    updated_at: `2026-11-14T10:0${minute}:30Z`,
+    actor: { login: 'octo' },
+    html_url: 'https://example.invalid/run',
+  });
+
+  test("scope=branch keeps only the folder's own branch", async () => {
+    const res = await handleRequest({ method: 'GET', url: '/agent/runs?directory=%2Fp%2Fapp&scope=branch', body: '' }, sess('main'));
+    expect((res.body as { items: { branch: string }[] }).items.map((item) => item.branch)).toEqual(['main']);
+    const all = await handleRequest({ method: 'GET', url: '/agent/runs?directory=%2Fp%2Fapp', body: '' }, sess('main'));
+    expect((all.body as { items: unknown[] }).items).toHaveLength(2);
+  });
+
+  test('a detached HEAD falls back to every branch', async () => {
+    const res = await handleRequest({ method: 'GET', url: '/agent/runs?directory=%2Fp%2Fapp&scope=branch', body: '' }, sess('HEAD'));
+    expect((res.body as { items: unknown[] }).items).toHaveLength(2);
   });
 });

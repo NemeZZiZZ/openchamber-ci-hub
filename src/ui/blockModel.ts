@@ -4,6 +4,7 @@
 
 import { GUEST_BLOCK_ANSWER_MAX } from '@openchamber/sdk';
 import { parseRepoKey } from '../domain/repoKey.ts';
+import { isFailed } from '../domain/format.ts';
 import type { Run } from '../domain/types.ts';
 import { conLabel, t } from './i18n.ts';
 
@@ -32,3 +33,6 @@ export const blockTitle = (run: Run): string =>
   t('block.titleStatus', { workflow: run.workflow, number: run.number, status: conLabel(run.conclusion ?? run.status) });
 
 export const blockAnswer = (handoffText: string): string => handoffText.slice(0, GUEST_BLOCK_ANSWER_MAX);
+
+/** A failed run retries only what failed; any other run has nothing failed to retry. */
+export const rerunKind = (run: Run): 'rerun-failed' | 'rerun-all' => (isFailed(run) ? 'rerun-failed' : 'rerun-all');

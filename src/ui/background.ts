@@ -53,7 +53,7 @@ export const startBackground = (host: HostClient, ctx: HostReadyContext): void =
   const latest = async (directory: string | null): Promise<AgentRun[]> => {
     const res = await svc<{ items: AgentRun[] }>({
       path: '/agent/runs',
-      query: { directory, limit: '10' },
+      query: { directory, limit: '10', scope: 'branch' },
     });
     return res.items;
   };

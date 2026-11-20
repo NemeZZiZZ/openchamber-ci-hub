@@ -139,6 +139,7 @@ export const handleRequest = async (request: RouteRequest, engine: Engine): Prom
         directory: q('directory') || undefined,
         repo: q('repo') || undefined,
         branch: q('branch') || undefined,
+        scope: q('scope') === 'branch' ? 'branch' : undefined,
         limit: rawLimit ? Number(rawLimit) : undefined,
       });
       if (!view) {

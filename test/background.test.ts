@@ -11,6 +11,7 @@ const run = (over: Partial<AgentRun> = {}): AgentRun => ({
   sha: 'abc1234',
   status: 'completed',
   conclusion: 'failure',
+  state: 'failure',
   attempt: 1,
   url: 'https://host/acme/app/actions/runs/100',
   durationMs: null,

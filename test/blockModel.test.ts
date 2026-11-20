@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { GUEST_BLOCK_ANSWER_MAX } from '@openchamber/sdk';
 import type { Run } from '../src/domain/types.ts';
-import { blockAnswer, blockTitle, readBlockArgs } from '../src/ui/blockModel.ts';
+import { blockAnswer, blockTitle, readBlockArgs, rerunKind } from '../src/ui/blockModel.ts';
 
 const run = (over: Partial<Run> = {}): Run => ({
   id: '100',
@@ -89,5 +89,13 @@ describe('blockAnswer', () => {
   test('never exceeds the block answer limit', () => {
     expect(blockAnswer('x'.repeat(20_000)).length).toBe(GUEST_BLOCK_ANSWER_MAX);
     expect(blockAnswer('short')).toBe('short');
+  });
+});
+
+describe('rerunKind', () => {
+  test('a failed run retries its failed jobs, any other run starts over', () => {
+    expect(rerunKind(run({ conclusion: 'failure' }))).toBe('rerun-failed');
+    expect(rerunKind(run({ conclusion: 'success' }))).toBe('rerun-all');
+    expect(rerunKind(run({ conclusion: 'cancelled' }))).toBe('rerun-all');
   });
 });

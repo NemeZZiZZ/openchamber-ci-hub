@@ -7,12 +7,12 @@ import { handleRequest } from '../src/service/routes.ts';
 
 const KEY = 'github:github.com/acme/app';
 
-const rawRun = (conclusion: string | null, attempt = 1) => ({
-  id: 100,
+const rawRun = (conclusion: string | null, attempt = 1, branch = 'main', id = 100) => ({
+  id,
   run_number: 7,
   name: 'CI',
   workflow_id: 3,
-  head_branch: 'main',
+  head_branch: branch,
   head_sha: 'abc',
   display_title: 'Commit',
   event: 'push',
@@ -42,7 +42,7 @@ const setup = (conclusion: string | null = 'failure', withRemote = true) => {
   const events: { topic: string; data?: unknown }[] = [];
   const marks: { target: ServiceMarkTarget; mark: ServiceMark | null }[] = [];
   const requests: string[] = [];
-  const control = { failRuns: false };
+  const control = { failRuns: false, attempt: 1, branch: 'main', extra: [] as ReturnType<typeof rawRun>[] };
   const engine = createEngine({
     config: createMemoryConfigStore(),
     prefs: createMemoryPrefsStore(),
@@ -52,14 +52,14 @@ const setup = (conclusion: string | null = 'failure', withRemote = true) => {
       requests.push(new URL(url).pathname);
       if (url.includes('/actions/runs')) {
         if (control.failRuns) return new Response('{}', { status: 500 });
-        return Response.json({ workflow_runs: [rawRun(conclusion)] });
+        return Response.json({ workflow_runs: [rawRun(conclusion, control.attempt), ...control.extra] });
       }
       return Response.json({ default_branch: 'main' });
     },
     git: async (args) => {
       if (!withRemote) return { code: 1, stdout: '', stderr: '' };
       if (args[0] === 'remote') return { code: 0, stdout: 'git@github.com:acme/app.git\n', stderr: '' };
-      if (args[0] === 'rev-parse') return { code: 0, stdout: 'main\n', stderr: '' };
+      if (args[0] === 'rev-parse') return { code: 0, stdout: `${control.branch}\n`, stderr: '' };
       return { code: 1, stdout: '', stderr: '' };
     },
     emit: (topic, data) => {
@@ -156,6 +156,30 @@ describe('session events', () => {
     expect(await engine.sessionEvent(other)).toEqual({ ok: true });
     expect(requests).toHaveLength(0);
     expect(turnCi()).toHaveLength(0);
+  });
+
+  test('a branch switched during the turn is seen by the next event', async () => {
+    const { engine, marks, control } = setup();
+    control.extra = [rawRun('success', 1, 'feature', 200)];
+    await engine.sessionEvent(turnFinished('/p/app'));
+    expect(marks.at(-1)!.mark?.tone).toBe('error');
+    control.branch = 'feature';
+    await engine.sessionEvent(turnFinished('/p/app'));
+    expect(marks.at(-1)).toMatchObject({ target: { directory: '/p/app', branch: 'main' }, mark: null });
+  });
+
+  test('the directories and turns it remembers are bounded', async () => {
+    const { engine, turnCi, control } = setup();
+    for (let i = 0; i < 300; i++) await engine.sessionEvent(turnFinished(`/p/app${i}`));
+    expect(engine.extraDirs.size).toBeLessThanOrEqual(256);
+    for (let attempt = 1; attempt <= 300; attempt++) {
+      control.attempt = attempt;
+      await engine.sessionEvent(turnFinished('/p/app'));
+    }
+    const before = turnCi().length;
+    control.attempt = 1; // forgotten by now, so it is announced again
+    await engine.sessionEvent(turnFinished('/p/app'));
+    expect(turnCi().length).toBe(before + 1);
   });
 
   test('POST /session-events with junk answers 400', async () => {
