@@ -55,6 +55,20 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih-fbar-meta{font-size:11.5px;color:${muted};${ellipsis}}
 .cih[data-size="s"] .cih-pill-grow{flex-basis:100%}
 
+/* Preferences popover */
+.cih-pill-prefs{flex:none;position:relative}
+.cih-prefs-toggle{background:none;border:1px solid transparent;border-radius:${radius};color:inherit;font:inherit;font-size:13px;line-height:1;padding:5px 7px;cursor:pointer}
+.cih-prefs-toggle:hover{background:${hover}}
+.cih-prefs{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:290px;max-width:90vw;padding:10px;border:1px solid ${line};border-radius:${radius};background:${card};box-shadow:0 8px 28px rgb(0 0 0 / 0.25)}
+.cih-prefs-title{font-weight:600;font-size:12px;margin-bottom:8px}
+.cih-prefs-rows{display:flex;flex-direction:column;gap:10px}
+.cih-prefs-row{display:flex;flex-direction:column;gap:5px}
+.cih-prefs-label{font-size:12px}
+.cih-seg{display:flex;gap:0;align-self:flex-start;border:1px solid ${line};border-radius:${radius};overflow:hidden}
+.cih-seg-option{background:none;border:0;color:inherit;font:inherit;font-size:12px;padding:4px 14px;cursor:pointer}
+.cih-seg-option:hover{background:${hover}}
+.cih-seg-option[aria-pressed="true"]{background:${selection};font-weight:600}
+
 /* Notes above the tree and in the detail */
 .cih-notes:empty{display:none}
 .cih-notes{flex:none}

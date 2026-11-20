@@ -5,6 +5,7 @@ import { formatAgo } from '../../domain/format.ts';
 import { h } from '../dom.ts';
 import { BRANCH_PREFIX, counts, projectKey, SCOPE_ALL, SCOPE_MINE, scopeBranch, type TreeFilter } from '../treeModel.ts';
 import { known, labels, viewFor } from './providers.ts';
+import { mountPrefs } from './prefs.ts';
 import { debounce, type App } from './state.ts';
 
 const branchNames = (app: App): string[] => {
@@ -116,8 +117,9 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
   const actorAt = h('div', { class: 'cih-pill' });
   const searchAt = h('div', { class: 'cih-pill cih-pill-grow' });
   const menuAt = h('div', { class: 'cih-pill cih-pill-menu' });
+  const prefsAt = h('div', { class: 'cih-pill cih-pill-prefs' });
   const metaEl = h('div', { class: 'cih-fbar-meta' });
-  pills.append(scopeAt, serviceAt, actorAt, searchAt, menuAt);
+  pills.append(scopeAt, serviceAt, actorAt, searchAt, menuAt, prefsAt);
   barEl.append(tabsAt, pills, metaEl);
 
   const tabs = mountTabs(tabsAt, {
@@ -178,6 +180,7 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
     },
   });
   const filterLater = debounce(120, () => app.renderTree());
+  const prefs = mountPrefs(app, prefsAt);
   const barMenu = mountMenu(menuAt, {
     label: '⋯',
     variant: 'ghost',
@@ -200,6 +203,7 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
   });
 
   const sync = () => {
+    prefs.sync();
     tabs.update({ items: tabItems(app), activeId: s.view.kind === 'board' ? 'board' : s.filter });
     scopeSelect.update({ value: s.scope, options: scopeOptions(app) });
     actorSelect.update({ value: s.actor, options: actorOptions(app) });

@@ -36,7 +36,7 @@ import { restoreCachedOverview } from './app/overviewCache.ts';
 import { renderRepos } from './app/repos.ts';
 import { viewFor } from './app/providers.ts';
 import { onRunMenu, runMenuItems } from './app/runMenu.ts';
-import { debounce, Region, SMALL_PX, WIDE_PX, type App, type AppState, type View } from './app/state.ts';
+import { readTurnCi, turnCiMessage } from './app/turnCi.ts';import { debounce, Region, SMALL_PX, WIDE_PX, type App, type AppState, type View } from './app/state.ts';
 import { clear, h } from './dom.ts';
 import { createSvc } from './port.ts';
 import { CSS } from './styles.ts';
@@ -264,6 +264,11 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
   });
 
   host.onServiceEvent(({ topic, data }) => {
+    if (topic === 'turn-ci') {
+      const t = readTurnCi(data);
+      if (t) toast('error', turnCiMessage(t));
+      return;
+    }
     if (topic !== 'runs') return;
     const forRepo = data && typeof data === 'object' && 'repo' in data ? (data as { repo?: unknown }).repo : null;
     if (typeof forRepo === 'string' && s.overview && !app.repoView(forRepo)) return;
