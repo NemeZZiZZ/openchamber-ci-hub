@@ -7,6 +7,7 @@
     "panel/page.html",
     "panel/block.html",
     "panel/block.js",
+    "plugin",
     "service/main.js",
     "README.md",
     "LICENSE"
@@ -29,6 +30,7 @@
         "model"
       ],
       "marks": true,
+      "opencodePlugin": "plugin",
       "sessionEvents": {
         "events": [
           "turn-finished"
