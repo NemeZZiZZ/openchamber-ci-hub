@@ -4,6 +4,7 @@ import { mountCheckbox, mountSelect, mountSpinner, mountTextField } from '@openc
 import { repoName } from '../../domain/repoKey.ts';
 import type { DispatchInput, WorkflowRef } from '../../domain/types.ts';
 import { clear, h, slot } from '../dom.ts';
+import { t } from '../i18n.ts';
 import { errorText } from '../port.ts';
 import { projectKey, SCOPE_ALL, SCOPE_MINE, scopeBranches, workflowKey } from '../treeModel.ts';
 import { viewFor } from './providers.ts';
@@ -114,32 +115,32 @@ export const renderDispatch = (app: App) => {
   const back = h(
     'div',
     { class: 'cih-bar' },
-    button(side, { label: s.wide ? 'Close' : '← Runs', variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
-    h('span', { class: 'cih-title cih-bar-grow', text: 'Run a workflow' }),
+    button(side, { label: s.wide ? t('dispatch.close') : t('state.backRuns'), variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
+    h('span', { class: 'cih-title cih-bar-grow', text: t('dispatch.runWorkflowTitle') }),
   );
   side.el.append(back);
   const repo = s.dispatchRepo;
   if (!current || !repo) return;
   const form = h('div', { class: 'cih-form' });
   side.el.append(form);
-  form.append(h('div', { class: 'cih-muted cih-small', text: `On ${repoName(repo)}. ${viewFor(app, repo).words.dispatchHelp}`.trim() }));
+  form.append(h('div', { class: 'cih-muted cih-small', text: `${t('dispatch.onRepo', { repo: repoName(repo) })}. ${viewFor(app, repo).words.dispatchHelp}`.trim() }));
   if (current.loading) {
     const at = slot();
-    side.keep(mountSpinner(at, { size: 'sm', label: 'Loading workflows…' }));
+    side.keep(mountSpinner(at, { size: 'sm', label: t('dispatch.loadingWorkflows') }));
     form.append(at);
     return;
   }
-  if (current.error) note(side, 'error', current.error, [{ label: 'Try again', onClick: () => (current.workflowId ? void loadInputs(app) : s.dispatchRepo && app.openDispatch(s.dispatchRepo)) }]);
+  if (current.error) note(side, 'error', current.error, [{ label: t('dispatch.retry'), onClick: () => (current.workflowId ? void loadInputs(app) : s.dispatchRepo && app.openDispatch(s.dispatchRepo)) }]);
   if (current.workflows.length === 0 && !current.error) {
-    form.append(h('div', { class: 'cih-muted', text: 'This repository has no active workflows.' }));
+    form.append(h('div', { class: 'cih-muted', text: t('dispatch.noWorkflows') }));
     return;
   }
   const wfAt = slot();
   side.keep(
     mountSelect(wfAt, {
-      label: 'Workflow',
+      label: t('dispatch.workflow'),
       value: current.workflowId,
-      placeholder: 'Choose a workflow',
+      placeholder: t('dispatch.chooseWorkflow'),
       searchable: current.workflows.length > 8,
       options: current.workflows.map((wf) => ({ id: wf.id, label: wf.name, hint: wf.file })),
       onChange: (id) => {
@@ -155,7 +156,7 @@ export const renderDispatch = (app: App) => {
   const refAt = slot();
   side.keep(
     mountTextField(refAt, {
-      label: 'Branch or tag',
+      label: t('dispatch.branchTag'),
       value: current.ref,
       mono: true,
       onChange: (value) => {
@@ -168,13 +169,13 @@ export const renderDispatch = (app: App) => {
 
   if (current.inputsLoading) {
     const at = slot();
-    side.keep(mountSpinner(at, { size: 'sm', label: 'Reading the workflow…' }));
+    side.keep(mountSpinner(at, { size: 'sm', label: t('dispatch.readingWorkflow') }));
     form.append(at);
     return;
   }
   if (!current.workflowId) return;
   if (current.dispatchable === false) {
-    form.append(h('div', { class: 'cih-note', 'data-tone': 'warning', text: current.refusal ?? `This ${viewFor(app, repo).words.workflow} cannot be started on ${current.ref}.` }));
+    form.append(h('div', { class: 'cih-note', 'data-tone': 'warning', text: current.refusal ?? t('dispatch.cannotStart', { message: current.ref.trim() }) }));
   }
   for (const input of current.inputs) {
     const at = slot();
@@ -197,7 +198,7 @@ export const renderDispatch = (app: App) => {
         mountSelect(at, {
           label,
           value: value || null,
-          placeholder: input.description || 'Choose',
+          placeholder: input.description || t('dispatch.choose'),
           options: input.options.map((option) => ({ id: option, label: option })),
           onChange: (id) => {
             current.values[input.name] = id;
@@ -223,7 +224,7 @@ export const renderDispatch = (app: App) => {
           handles.push(
             mountTextField(keyAt, {
                 value: row.key,
-                placeholder: 'KEY',
+                placeholder: t('dispatch.keyPlaceholder'),
                 onChange: (next) => {
                   rows[index] = { key: next, value: rows[index]!.value };
                   commit();
@@ -233,7 +234,7 @@ export const renderDispatch = (app: App) => {
           handles.push(
             mountTextField(valueAt, {
                 value: row.value,
-                placeholder: 'value',
+                placeholder: t('dispatch.valuePlaceholder'),
                 onChange: (next) => {
                   rows[index] = { key: rows[index]!.key, value: next };
                   commit();
@@ -244,7 +245,7 @@ export const renderDispatch = (app: App) => {
             class: 'cih-link',
             type: 'button',
             text: '✕',
-            'aria-label': `Remove ${row.key || 'variable'}`,
+            'aria-label': t('dispatch.removeVar', { name: row.key || 'variable' }),
             onclick: () => {
               rows.splice(index, 1);
               commit();
@@ -263,7 +264,7 @@ export const renderDispatch = (app: App) => {
       const add = h('button', {
         class: 'cih-link',
         type: 'button',
-        text: '+ Variable',
+        text: t('dispatch.addVar'),
         onclick: () => {
           rows = [...rows, { key: '', value: '' }];
           commit();
@@ -278,7 +279,7 @@ export const renderDispatch = (app: App) => {
           label,
           value,
           helper: input.description || undefined,
-          placeholder: input.type === 'environment' ? 'environment name' : undefined,
+          placeholder: input.type === 'environment' ? t('dispatch.envPlaceholder') : undefined,
           onChange: (next) => {
             current.values[input.name] = next;
           },
@@ -293,27 +294,27 @@ export const renderDispatch = (app: App) => {
       'div',
       { class: 'cih-actions' },
       button(side, {
-        label: 'Run workflow',
+        label: t('dispatch.runWorkflow'),
         loading: current.submitting,
         disabled: current.dispatchable === false || !current.ref.trim(),
         onClick: () => {
           const missing = current.inputs.filter((input) => input.required && !(current.values[input.name] ?? '').trim());
           if (missing.length > 0) {
-            app.toast('error', `Fill in ${missing.map((input) => input.name).join(', ')} first.`);
+            app.toast('error', t('dispatch.fillFirst'));
             return;
           }
           const name = workflow?.name ?? 'this workflow';
           const ref = current.ref.trim();
           app.ask({
-            message: `Start ${name} on ${ref}? This uses runner minutes.`,
-            label: 'Run it',
+            message: t('dispatch.startMsg', { workflow: name, ref, repo: repoName(repo) }),
+            label: t('dispatch.runIt'),
             destructive: false,
             work: async () => {
               current.submitting = true;
               app.renderSide();
               try {
                 await app.svc({ method: 'POST', path: '/dispatch', body: { repo, workflowId: current.workflowId, ref, inputs: current.values } });
-                app.toast('success', `Started ${name} on ${ref}. It shows up in the list in a few seconds.`);
+                app.toast('success', t('dispatch.started', { name }));
                 s.dispatch = null;
                 s.filter = 'all';
                 if (s.scope !== SCOPE_ALL) app.resetHistory();

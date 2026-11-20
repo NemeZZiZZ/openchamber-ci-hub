@@ -3,9 +3,10 @@
 // in the DOM; the project a reader has scrolled into stays pinned on top.
 
 import { mountMenu, type MenuItem } from '@openchamber/sdk/ui';
-import { conclusionLabel, conclusionTone, formatAgo, formatEvent, runDurationLabel, trendPoints, trendSpan, type Tone } from '../domain/format.ts';
-import type { Run } from '../domain/types.ts';
+import { conclusionTone, formatEvent, runDurationLabel, trendPoints, trendSpan, type Tone } from '../domain/format.ts';
+import type { Conclusion, Run, RunStatus } from '../domain/types.ts';
 import { h } from './dom.ts';
+import { agoText, conLabel, t } from './i18n.ts';
 import { offsets, projectFor, rowAt, ROW_HEIGHT, windowFor, type MoreRow, type ProjectRow, type TreeRow } from './treeModel.ts';
 
 export interface TreeCallbacks {
@@ -35,6 +36,24 @@ const dot = (tone: Tone, label: string) => h('span', { class: 'cih-dot', 'data-t
 
 const chevron = (open: boolean) => h('span', { class: 'cih-chev', 'data-open': open ? 'true' : 'false', 'aria-hidden': 'true' });
 
+/**
+ * The domain conclusionLabel's status-wins resolution as a single conLabel
+ * input: an active status names itself, otherwise the conclusion does.
+ * Exact in english for every (conclusion, status) pair the domain handles.
+ */
+const labelOf = (conclusion: Conclusion, status: RunStatus): string =>
+  conLabel(
+    status === 'in_progress'
+      ? status
+      : status === 'queued' || status === 'waiting' || status === 'pending'
+        ? 'queued'
+        : conclusion === 'success'
+          ? 'succeeded'
+          : conclusion === 'failure'
+            ? 'failed'
+            : (conclusion ?? (status === 'completed' ? 'completed' : 'unknown')),
+  );
+
 /** A duration sparkline for the workflow row; invisible until two runs loaded. */
 const sparkline = (trend: readonly number[]): SVGElement | null => {
   const points = trendPoints(trend, 64, 18);
@@ -58,15 +77,15 @@ const sparkline = (trend: readonly number[]): SVGElement | null => {
 };
 
 const summary = (row: ProjectRow): { text: string; tone: string } => {
-  if (row.error) return { text: 'error', tone: 'error' };
-  if (row.failed) return { text: `${row.failed} failed`, tone: 'error' };
-  if (row.running) return { text: `${row.running} running`, tone: 'info' };
-  if (row.total) return { text: 'all green', tone: 'success' };
-  return { text: 'no runs', tone: 'muted' };
+  if (row.error) return { text: t('tree.projectError', { name: row.name, message: row.error }), tone: 'error' };
+  if (row.failed) return { text: t('tree.failedCount', { n: row.failed }), tone: 'error' };
+  if (row.running) return { text: t('tree.runningCount', { n: row.running }), tone: 'info' };
+  if (row.total) return { text: t('tree.allGreen'), tone: 'success' };
+  return { text: t('tree.noRuns'), tone: 'muted' };
 };
 
 export const mountTree = (callbacks: TreeCallbacks): Tree => {
-  const scroller = h('div', { class: 'cih-tree', role: 'tree', 'aria-label': 'Projects and runs' });
+  const scroller = h('div', { class: 'cih-tree', role: 'tree', 'aria-label': t('tree.projectsRuns') });
   const sticky = h('div', { class: 'cih-tree-sticky' });
   const canvas = h('div', { class: 'cih-tree-canvas' });
   scroller.append(sticky, canvas);
@@ -84,10 +103,10 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
       case 'project':
         return `${row.expanded}|${row.failed}|${row.running}|${row.total}|${row.error}|${row.name}`;
       case 'workflow':
-        return `${row.expanded}|${row.name}|${row.latest.id}|${row.latest.status}|${row.latest.conclusion}|${formatAgo(row.latest.createdAt, now)}|${row.trend.length}`;
+        return `${row.expanded}|${row.name}|${row.latest.id}|${row.latest.status}|${row.latest.conclusion}|${agoText(row.latest.createdAt, now)}|${row.trend.length}`;
       case 'run': {
         const run = row.run;
-        return `${row.key === selected}|${run.status}|${run.conclusion}|${run.attempt}|${formatAgo(run.createdAt, now)}|${runDurationLabel(run, now) ?? ''}|${row.twin?.id ?? ''}`;
+        return `${row.key === selected}|${run.status}|${run.conclusion}|${run.attempt}|${agoText(run.createdAt, now)}|${runDurationLabel(run, now) ?? ''}|${row.twin?.id ?? ''}`;
       }
       case 'more':
         return `${row.loading}|${row.error}`;
@@ -123,7 +142,7 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
         return { el: projectEl(row, false), sig };
       case 'workflow': {
         const latest = row.latest;
-        const label = conclusionLabel(latest.conclusion, latest.status);
+        const label = labelOf(latest.conclusion, latest.status);
         return {
           sig,
           el: h(
@@ -138,7 +157,7 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
             chevron(row.expanded),
             dot(conclusionTone(latest.conclusion, latest.status), `Latest run ${label}`),
             h('span', { class: 'cih-tr-name', text: row.name }),
-            h('span', { class: 'cih-tr-meta', text: `#${latest.number} · ${formatAgo(latest.createdAt)}` }),
+            h('span', { class: 'cih-tr-meta', text: `#${latest.number} · ${agoText(latest.createdAt)}` }),
             sparkline(row.trend),
           ),
         };
@@ -146,10 +165,10 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
       case 'run': {
         const run = row.run;
         const now = Date.now();
-        const label = conclusionLabel(run.conclusion, run.status);
+        const label = labelOf(run.conclusion, run.status);
         const sub = [run.branch, formatEvent(run.event), runDurationLabel(run, now) ?? ''].filter(Boolean);
-        if (run.attempt > 1) sub.push(`attempt ${run.attempt}`);
-        if (row.twin) sub.push(`flaky · passed in #${row.twin.number}`);
+        if (run.attempt > 1) sub.push(t('tree.attempt', { n: run.attempt }));
+        if (row.twin) sub.push(t('tree.flakyTwin', { title: row.twin.title || row.twin.workflow }));
         const menuAt = h('span', { class: 'cih-tr-menu', onclick: (event: Event) => event.stopPropagation() });
         const menu = mountMenu(menuAt, {
           label: '⋯',
@@ -165,7 +184,7 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
             role: 'treeitem',
             tabindex: '0',
             'aria-current': row.key === selected ? 'true' : 'false',
-            'aria-label': `${run.workflow} #${run.number} ${label}: ${run.title}`,
+            'aria-label': `${t('tree.runLabel', { workflow: run.workflow, number: run.number })} ${label}: ${run.title}`,
             onclick: () => callbacks.onOpenRun(run),
             onkeydown: (event: KeyboardEvent) => {
               if (event.target !== el) return;
@@ -182,13 +201,13 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
             h('span', { class: 'cih-tr-title' }, h('span', { class: 'cih-tr-num', text: `#${run.number}` }), ' ', run.title || run.workflow),
             h('span', { class: 'cih-tr-sub', text: sub.join(' · ') }),
           ),
-          h('span', { class: 'cih-tr-meta', text: formatAgo(run.createdAt, now) }),
+          h('span', { class: 'cih-tr-meta', text: agoText(run.createdAt, now) }),
           menuAt,
         );
         return { el, sig, dispose: () => menu.dispose() };
       }
       case 'more': {
-        const text = row.loading ? 'Loading older runs…' : row.error ? `${row.error} Try again` : 'Load older runs';
+        const text = row.loading ? t('tree.loadingOlder') : row.error ? t('tree.loadError', { message: row.error }) : t('tree.loadOlder');
         return {
           sig,
           el: h('button', {

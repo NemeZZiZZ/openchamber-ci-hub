@@ -1,8 +1,8 @@
 // The filter bar above the tree: tabs, branch scope, actor, search and the ⋯ menu.
 
 import { mountMenu, mountSearchField, mountSelect, mountTabs } from '@openchamber/sdk/ui';
-import { formatAgo } from '../../domain/format.ts';
 import { h } from '../dom.ts';
+import { agoText, t } from '../i18n.ts';
 import { BRANCH_PREFIX, counts, projectKey, SCOPE_ALL, SCOPE_MINE, scopeBranch, type TreeFilter } from '../treeModel.ts';
 import { known, labels, viewFor } from './providers.ts';
 import { mountPrefs } from './prefs.ts';
@@ -27,27 +27,27 @@ const tabItems = (app: App) => {
   const s = app.s;
   const c = s.overview ? counts(s.overview.repos, s.scope, s.actor, s.service) : { failed: 0, running: 0 };
   return [
-    { id: 'attention', label: s.size === 'm' ? 'Needs attention' : 'Attention' },
-    { id: 'failed', label: 'Failed', count: c.failed },
-    { id: 'in_progress', label: 'Running', count: c.running },
-    { id: 'all', label: 'All' },
-    { id: 'board', label: 'Board' },
+    { id: 'attention', label: s.size === 'm' ? t('bar.needsAttention') : t('bar.attention') },
+    { id: 'failed', label: t('bar.failed'), count: c.failed },
+    { id: 'in_progress', label: t('bar.running'), count: c.running },
+    { id: 'all', label: t('bar.all') },
+    { id: 'board', label: t('bar.board') },
   ];
 };
 
 const scopeOptions = (app: App) => [
-  { id: SCOPE_MINE, label: 'Default + current', hint: 'each project’s default branch and the branch checked out in its folder' },
-  { id: SCOPE_ALL, label: 'All branches' },
+  { id: SCOPE_MINE, label: t('bar.defaultCurrent'), hint: t('bar.branchHint') },
+  { id: SCOPE_ALL, label: t('bar.allBranches') },
   ...branchNames(app).map((name) => ({ id: `${BRANCH_PREFIX}${name}`, label: name })),
 ];
 
-const actorOptions = (app: App): { id: string; label: string }[] => [{ id: '', label: 'Anyone' }, ...actorNames(app).map((name) => ({ id: name, label: name }))];
+const actorOptions = (app: App): { id: string; label: string }[] => [{ id: '', label: t('bar.anyone') }, ...actorNames(app).map((name) => ({ id: name, label: name }))];
 
 /** «All services» plus the providers that actually have projects, in registry order. */
 export const serviceOptions = (app: App): { id: string; label: string }[] => {
   const present = new Set((app.s.overview?.repos ?? []).map((repo) => repo.provider));
   const options = [
-    { id: '', label: 'All services' },
+    { id: '', label: t('bar.allServices') },
     ...known(app)
       .filter((provider) => present.has(provider.id))
       .map((provider) => ({ id: provider.id, label: provider.label })),
@@ -64,12 +64,12 @@ const menuItems = (app: App) => {
   const target = app.contextRepo();
   const provider = viewFor(app, target);
   return [
-    { id: 'refresh', label: 'Refresh' },
-    { id: 'collapse', label: 'Collapse all' },
+    { id: 'refresh', label: t('bar.refresh') },
+    { id: 'collapse', label: t('bar.collapseAll') },
     { separator: true as const },
-    { id: 'dispatch', label: `Run a ${provider.words.workflow}…`, disabled: !target || !provider.capabilities.dispatch },
-    { id: 'repos', label: 'Repositories and account…' },
-    { id: 'ci', label: target ? `Open ${app.repoView(target)?.name ?? target} on ${provider.label}` : `Open on ${labels(app)}`, disabled: !target },
+    { id: 'dispatch', label: t('bar.runWorkflow', { noun: provider.words.workflow }), disabled: !target || !provider.capabilities.dispatch },
+    { id: 'repos', label: t('bar.reposAccount') },
+    { id: 'ci', label: target ? t('bar.openOn', { name: app.repoView(target)?.name ?? target, label: provider.label }) : t('bar.openOnLabels', { labels: labels(app) }), disabled: !target },
   ];
 };
 
@@ -133,7 +133,7 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
     value: s.scope,
     options: scopeOptions(app),
     searchable: true,
-    searchPlaceholder: 'Branch',
+    searchPlaceholder: t('bar.branch'),
     onChange: (id) => {
       s.scope = id;
       app.resetHistory();
@@ -159,7 +159,7 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
     value: s.actor,
     options: actorOptions(app),
     searchable: true,
-    searchPlaceholder: 'Who started it',
+    searchPlaceholder: t('bar.startedBy'),
     onChange: (id) => {
       s.actor = id;
       app.resetHistory();
@@ -171,8 +171,8 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
   });
   const treeSearch = mountSearchField(searchAt, {
     value: s.query,
-    placeholder: 'Filter projects',
-    label: 'Filter projects and workflows',
+    placeholder: t('bar.filterProjects'),
+    label: t('bar.filterWorkflows'),
     onChange: (value) => {
       s.query = value;
       treeSearch.update({ value });
@@ -213,7 +213,7 @@ export const mountBar = (app: App, barEl: HTMLElement): { sync(): void } => {
     const polled = repos.map((entry) => entry.polledAt ?? 0).filter(Boolean);
     const newest = polled.length ? Math.max(...polled) : null;
     metaEl.textContent = s.overview
-      ? `${repos.length} ${repos.length === 1 ? 'project' : 'projects'}${newest ? ` · checked ${formatAgo(newest)}` : ''}`
+      ? `${repos.length === 1 ? t('bar.projectOne') : t('bar.projectsMany', { n: repos.length })}${newest ? t('bar.checkedSuffix', { ago: agoText(newest) }) : ''}`
       : '';
   };
   return { sync };

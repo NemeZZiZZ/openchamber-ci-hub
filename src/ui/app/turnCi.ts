@@ -4,6 +4,7 @@
 
 import { repoName } from '../../domain/repoKey.ts';
 import type { Prefs } from '../../service/prefs.ts';
+import { t } from '../i18n.ts';
 
 export interface TurnCi {
   directory: string;
@@ -33,10 +34,10 @@ export const readTurnCi = (data: unknown): TurnCi | null => {
   return { directory, repo, branch, runId, number: raw.number, workflow, conclusion, attempt: raw.attempt };
 };
 
-export const turnCiMessage = (t: TurnCi): string =>
-  `CI failed on ${t.branch ?? repoName(t.repo)}: ${t.workflow} #${t.number}`;
+export const turnCiMessage = (turn: TurnCi): string =>
+  t('turnCi.failedOn', { where: turn.branch ?? repoName(turn.repo), workflow: turn.workflow, number: turn.number });
 
 export const prefRows = (p: Prefs): { id: 'marks' | 'toastOnTurnFailure'; label: string; on: boolean }[] => [
-  { id: 'marks', label: 'Sidebar marks', on: p.marks },
-  { id: 'toastOnTurnFailure', label: 'Toast when CI fails after a turn', on: p.toastOnTurnFailure },
+  { id: 'marks', label: t('prefs.marks'), on: p.marks },
+  { id: 'toastOnTurnFailure', label: t('prefs.toastAfterTurn'), on: p.toastOnTurnFailure },
 ];

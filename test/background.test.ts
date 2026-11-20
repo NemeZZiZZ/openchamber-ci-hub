@@ -99,7 +99,7 @@ describe('background frame against the real route envelope', () => {
   test('Check CI toasts from { items }', async () => {
     const f = frame({ items: [run()] });
     await f.act('ci-check');
-    expect(f.toasts).toEqual([{ kind: 'error', message: 'CI failed: CI #7 on main' }]);
+    expect(f.toasts).toEqual([{ kind: 'error', message: 'The latest CI run failed. Fix it.' }]);
     const empty = frame({ items: [] });
     await empty.act('ci-check');
     expect(empty.toasts[0]).toMatchObject({ kind: 'info', message: 'No CI runs for this folder yet.' });

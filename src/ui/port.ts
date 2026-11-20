@@ -3,6 +3,7 @@
 // service's own message.
 
 import type { GuestRequest, HostClient } from '@openchamber/sdk';
+import { t } from './i18n.ts';
 
 export class ServiceError extends Error {
   readonly status: number;
@@ -51,7 +52,7 @@ export const createSvc = (host: Pick<HostClient, 'serviceRequest'>): Svc => {
       response = await host.serviceRequest(request);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new ServiceError(0, `CI Hub's service did not answer (${message}).`, 'service');
+      throw new ServiceError(0, t('port.noAnswer', { message }), 'service');
     }
     const body = parse(response.body);
     if (response.status >= 400) {
@@ -61,7 +62,7 @@ export const createSvc = (host: Pick<HostClient, 'serviceRequest'>): Svc => {
           ? record.message
           : typeof body === 'string' && body
             ? body.slice(0, 300)
-            : `CI Hub's service answered ${response.status}.`;
+            : t('port.answeredWith', { status: response.status });
       throw new ServiceError(
         response.status,
         message,
@@ -74,4 +75,4 @@ export const createSvc = (host: Pick<HostClient, 'serviceRequest'>): Svc => {
 };
 
 export const errorText = (err: unknown): string =>
-  err instanceof Error ? err.message : typeof err === 'string' ? err : 'Something went wrong.';
+  err instanceof Error ? err.message : typeof err === 'string' ? err : t('port.wentWrong');

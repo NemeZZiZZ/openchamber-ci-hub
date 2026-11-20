@@ -81,7 +81,7 @@ describe('readBlockArgs', () => {
 describe('blockTitle', () => {
   test('workflow, number and verdict', () => {
     expect(blockTitle(run())).toBe('CI #7 · failure');
-    expect(blockTitle(run({ conclusion: null, status: 'in_progress' }))).toBe('CI #7 · in_progress');
+    expect(blockTitle(run({ conclusion: null, status: 'in_progress' }))).toBe('CI #7 · in progress');
   });
 });
 

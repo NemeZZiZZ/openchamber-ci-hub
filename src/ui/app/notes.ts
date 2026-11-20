@@ -2,6 +2,7 @@
 // empty state and "nothing matches".
 
 import { h } from '../dom.ts';
+import { t } from '../i18n.ts';
 import { ServiceError } from '../port.ts';
 import { labels } from './providers.ts';
 import { button, note, type App } from './state.ts';
@@ -12,17 +13,14 @@ export const renderNotes = (app: App) => {
   listNotes.reset();
   if (s.overviewError) {
     const serviceDown = s.overviewError instanceof ServiceError && s.overviewError.kind === 'service';
-    note(
-      listNotes,
-      'error',
-      serviceDown ? `${s.overviewError.message} It starts on demand; try again in a moment.` : s.overviewError.message,
-      [{ label: 'Try again', onClick: () => void app.refreshAll() }],
-    );
+    note(listNotes, 'error', serviceDown ? t('notes.startsOnDemand') : s.overviewError.message, [
+      { label: t('notes.retry'), onClick: () => void app.refreshAll() },
+    ]);
     if (!s.overview) return;
   }
   const overview = s.overview;
   if (showsLoadingPlaceholder(s)) {
-    listNotes.el.append(h('div', { class: 'cih-quiet', text: `Looking for ${labels(app)} projects…` }));
+    listNotes.el.append(h('div', { class: 'cih-quiet', text: t('notes.lookingFor', { labels: labels(app) }) }));
     return;
   }
   if (!overview) return;
@@ -31,10 +29,10 @@ export const renderNotes = (app: App) => {
     note(
       listNotes,
       'warning',
-      auth.message ?? overview.providers.find((provider) => provider.id === auth.provider)?.words.noAccount ?? `No ${auth.label} account for ${auth.host}.`,
+      auth.message ?? overview.providers.find((provider) => provider.id === auth.provider)?.words.noAccount ?? t('notes.noProviderAccount', { labels: labels(app) }),
       [
-        { label: 'Check again', onClick: () => void app.refreshAll() },
-        { label: 'Account help', onClick: () => app.openRepos() },
+        { label: t('notes.checkAgain'), onClick: () => void app.refreshAll() },
+        { label: t('notes.accountHelp'), onClick: () => app.openRepos() },
       ],
     );
   }
@@ -42,23 +40,23 @@ export const renderNotes = (app: App) => {
     const blockedUntil = account.rateLimit?.blockedUntil;
     if (!blockedUntil) continue;
     const at = new Date(blockedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    note(listNotes, 'warning', `${account.label} (${account.host}) asked CI Hub to slow down. Its projects resume at ${at}; what you see is from before.`);
+    note(listNotes, 'warning', t('notes.rateLimited', { message: at }));
   }
   if (overview.repos.length === 0) {
     const box = h(
       'div',
       { class: 'cih-empty' },
-      h('strong', { text: `No ${labels(app)} projects yet` }),
+      h('strong', { text: t('notes.noProjects', { labels: labels(app) }) }),
       h('div', {
         class: 'cih-muted',
-        text: `CI Hub lists every OpenChamber project whose folder has a ${labels(app)} remote. You can also watch a repository by name.`,
+        text: t('notes.emptyHint'),
       }),
     );
-    box.append(button(listNotes, { label: 'Add a repository', size: 'sm', variant: 'outline', onClick: () => app.openRepos() }));
+    box.append(button(listNotes, { label: t('notes.addRepo'), size: 'sm', variant: 'outline', onClick: () => app.openRepos() }));
     listNotes.el.append(box);
     return;
   }
   if (s.treeRowCount === 0 && s.query.trim()) {
-    listNotes.el.append(h('div', { class: 'cih-quiet', text: `No project or workflow matches “${s.query.trim()}”.` }));
+    listNotes.el.append(h('div', { class: 'cih-quiet', text: t('notes.noMatch', { query: s.query.trim() }) }));
   }
 };

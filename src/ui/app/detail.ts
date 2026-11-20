@@ -2,17 +2,35 @@
 // switch between the run, dispatch and repositories surfaces.
 
 import { mountBadge, mountMenu, mountSpinner } from '@openchamber/sdk/ui';
-import { conclusionLabel, conclusionTone, formatAgo, formatDuration, formatEvent, isActive, isFailed, isFailedConclusion, queueTime, runDuration } from '../../domain/format.ts';
+import { conclusionTone, formatDuration, formatEvent, isActive, isFailed, isFailedConclusion, queueTime, runDuration } from '../../domain/format.ts';
 import { failedJobs, failingStep, focusJob } from '../../domain/handoff.ts';
 import { parseLog } from '../../domain/log.ts';
 import { repoName } from '../../domain/repoKey.ts';
-import type { Job, Run } from '../../domain/types.ts';
+import type { Conclusion, Job, Run, RunStatus } from '../../domain/types.ts';
 import { h, slot } from '../dom.ts';
+import { agoText, conLabel, t } from '../i18n.ts';
 import { errorText, ServiceError } from '../port.ts';
 import { viewFor } from './providers.ts';
 import { backBar, button, dot, note, Region, shortSha, type App, type Detail } from './state.ts';
 
 let detailSeq = 0;
+
+/**
+ * The domain conclusionLabel's status-wins resolution as a single conLabel
+ * input: an active status names itself, otherwise the conclusion does.
+ */
+const labelOf = (conclusion: Conclusion, status: RunStatus): string =>
+  conLabel(
+    status === 'in_progress'
+      ? status
+      : status === 'queued' || status === 'waiting' || status === 'pending'
+        ? 'queued'
+        : conclusion === 'success'
+          ? 'succeeded'
+          : conclusion === 'failure'
+            ? 'failed'
+            : (conclusion ?? (status === 'completed' ? 'completed' : 'unknown')),
+  );
 
 /** Only a failed job offers the Fix button: a green or running job has nothing to fix. Uses the domain's failed predicate, so timed-out and startup-failed jobs count too. */
 export const fixableJob = (job: Job): boolean => isFailedConclusion(job.conclusion);
@@ -100,7 +118,7 @@ export const renderSide = (app: App) => {
   if (s.view.kind !== 'run' || !s.detail) {
     if (s.wide) {
       side.el.append(
-        h('div', { class: 'cih-empty' }, h('strong', { text: 'Pick a run' }), h('div', { text: 'Its jobs, the failing step and the log open here.' })),
+        h('div', { class: 'cih-empty' }, h('strong', { text: t('detail.pickRun') }), h('div', { text: t('detail.jobsHint') })),
       );
     }
     return;
@@ -112,11 +130,11 @@ const renderDetail = (app: App, current: Detail) => {
   const { host, side } = app;
   const busy = app.s.busy;
   const run = current.run;
-  const back = backBar(app, run ? `${run.workflow} #${run.number}` : 'Run');
+  const back = backBar(app, run ? t('tree.runLabel', { workflow: run.workflow, number: run.number }) : t('detail.run'));
   if (back) side.el.append(back);
   if (!run) {
     const at = slot();
-    side.keep(mountSpinner(at, { label: 'Loading run…' }));
+    side.keep(mountSpinner(at, { label: t('detail.loadingRun') }));
     side.el.append(h('div', { class: 'cih-empty' }, at));
     return;
   }
@@ -124,7 +142,7 @@ const renderDetail = (app: App, current: Detail) => {
   const { capabilities, words } = provider;
   const now = Date.now();
   const tone = conclusionTone(run.conclusion, run.status);
-  const label = conclusionLabel(run.conclusion, run.status);
+  const label = labelOf(run.conclusion, run.status);
   const badgeAt = slot();
   side.keep(
     mountBadge(badgeAt, {
@@ -139,7 +157,7 @@ const renderDetail = (app: App, current: Detail) => {
     'div',
     { class: 'cih-card cih-head' },
     h('div', { class: 'cih-muted cih-small', text: repoName(run.repo) }),
-    h('div', { class: 'cih-head-top' }, h('h2', { class: 'cih-title cih-bar-grow', text: `${run.workflow} #${run.number}` }), badgeAt),
+    h('div', { class: 'cih-head-top' }, h('h2', { class: 'cih-title cih-bar-grow', text: t('tree.runLabel', { workflow: run.workflow, number: run.number }) }), badgeAt),
     run.title ? h('div', { text: run.title }) : null,
     h(
       'div',
@@ -148,18 +166,18 @@ const renderDetail = (app: App, current: Detail) => {
       sha,
       h('span', { text: formatEvent(run.event) }),
       run.actor ? h('span', { text: run.actor }) : null,
-      run.attempt > 1 ? h('span', { text: `attempt ${run.attempt}` }) : null,
-      duration !== null ? h('span', { text: `${isActive(run) ? 'running' : 'took'} ${formatDuration(duration)}` }) : null,
-      queued !== null && queued >= 5_000 ? h('span', { text: `queued ${formatDuration(queued)}` }) : null,
-      h('span', { text: formatAgo(run.createdAt, now) }),
+      run.attempt > 1 ? h('span', { text: t('detail.attempt', { n: run.attempt }) }) : null,
+      duration !== null ? h('span', { text: isActive(run) ? t('detail.runningFor', { duration: formatDuration(duration) }) : t('detail.took', { duration: formatDuration(duration) }) }) : null,
+      queued !== null && queued >= 5_000 ? h('span', { text: t('detail.queuedFor', { duration: formatDuration(queued) }) }) : null,
+      h('span', { text: agoText(run.createdAt, now) }),
       h('button', { class: 'cih-link', type: 'button', onclick: () => void host.openUrl(run.url) }, `${provider.label} ↗`),
     ),
   );
   const actions = h('div', { class: 'cih-actions' });
   const active = isActive(run);
   if (active && capabilities.approve && run.status === 'waiting') {
-    actions.append(button(side, { label: 'Approve', size: 'sm', variant: 'outline', loading: busy.has(`${run.id}:approve`), onClick: () => app.askAction(run, 'approve') }));
-    actions.append(button(side, { label: 'Decline', size: 'sm', variant: 'destructive', loading: busy.has(`${run.id}:decline`), onClick: () => app.askAction(run, 'decline') }));
+    actions.append(button(side, { label: t('detail.approve'), size: 'sm', variant: 'outline', loading: busy.has(`${run.id}:approve`), onClick: () => app.askAction(run, 'approve') }));
+    actions.append(button(side, { label: t('detail.decline'), size: 'sm', variant: 'destructive', loading: busy.has(`${run.id}:decline`), onClick: () => app.askAction(run, 'decline') }));
   }
   if (!active && isFailed(run) && capabilities.rerunFailed) {
     actions.append(button(side, { label: words.rerunFailedShort, size: 'sm', loading: busy.has(`${run.id}:rerun-failed`), onClick: () => app.askAction(run, 'rerun-failed') }));
@@ -167,17 +185,17 @@ const renderDetail = (app: App, current: Detail) => {
   if (!active && capabilities.rerunAll) {
     actions.append(button(side, { label: words.rerunAllShort, size: 'sm', variant: 'outline', loading: busy.has(`${run.id}:rerun-all`), onClick: () => app.askAction(run, 'rerun-all') }));
   } else if (active && capabilities.cancel) {
-    actions.append(button(side, { label: 'Cancel', size: 'sm', variant: 'destructive', loading: busy.has(`${run.id}:cancel`), onClick: () => app.askAction(run, 'cancel') }));
+    actions.append(button(side, { label: t('detail.cancel'), size: 'sm', variant: 'destructive', loading: busy.has(`${run.id}:cancel`), onClick: () => app.askAction(run, 'cancel') }));
   }
   const agentAt = slot();
   side.keep(
     mountMenu(agentAt, {
-      label: busy.has(`${run.id}:agent`) ? 'Sending…' : 'Send to agent',
+      label: busy.has(`${run.id}:agent`) ? t('detail.sending') : t('detail.sendAgent'),
       variant: 'outline',
       size: 'sm',
       items: [
-        { id: 'agent', label: 'New session in this project' },
-        { id: 'agent-worktree', label: `New session in a worktree of ${run.branch}`.slice(0, 60) },
+        { id: 'agent', label: t('detail.newSession') },
+        { id: 'agent-worktree', label: t('detail.newSessionWorktree') },
       ],
       onSelect: (id) => app.onRunMenu(run, id, current.jobId),
     }),
@@ -190,10 +208,10 @@ const renderDetail = (app: App, current: Detail) => {
       variant: 'ghost',
       size: 'sm',
       items: [
-        { id: 'copy', label: 'Copy run link' },
-        { id: 'copy-log', label: 'Copy log link', disabled: !current.jobId },
-        { id: 'web', label: `Open on ${provider.label}` },
-        { id: 'refresh', label: 'Refresh' },
+        { id: 'copy', label: t('detail.copyRun') },
+        { id: 'copy-log', label: t('detail.copyLog'), disabled: !current.jobId },
+        { id: 'web', label: t('runMenu.openOn', { name: run.workflow, label: provider.label }) },
+        { id: 'refresh', label: t('detail.refresh') },
       ],
       onSelect: (id) => (id === 'refresh' ? void app.loadDetail(false) : app.onRunMenu(run, id, current.jobId)),
     }),
@@ -203,7 +221,7 @@ const renderDetail = (app: App, current: Detail) => {
   side.el.append(head);
 
   if (current.error) {
-    note(side, 'error', current.error, [{ label: 'Try again', onClick: () => void app.loadDetail(false) }]);
+    note(side, 'error', current.error, [{ label: t('detail.retry'), onClick: () => void app.loadDetail(false) }]);
   }
 
   // Jobs and steps.
@@ -214,24 +232,24 @@ const renderDetail = (app: App, current: Detail) => {
     h(
       'div',
       { class: 'cih-card-head' },
-      h('span', { class: 'cih-card-title', text: 'Jobs' }),
+      h('span', { class: 'cih-card-title', text: t('detail.jobs') }),
       current.jobs.length
-        ? h('span', { class: 'cih-card-sub', 'data-tone': failedCount ? 'error' : null, text: failedCount ? `${failedCount} failed of ${current.jobs.length}` : `${current.jobs.length}` })
+        ? h('span', { class: 'cih-card-sub', 'data-tone': failedCount ? 'error' : null, text: failedCount ? t('detail.failedOf', { failed: failedCount, total: current.jobs.length }) : `${current.jobs.length}` })
         : null,
     ),
   );
   side.el.append(jobsCard);
   if (current.loading && current.jobs.length === 0) {
     const at = slot();
-    side.keep(mountSpinner(at, { size: 'sm', label: 'Loading jobs…' }));
+    side.keep(mountSpinner(at, { size: 'sm', label: t('detail.loadingJobs') }));
     jobsCard.append(h('div', { class: 'cih-pad' }, at));
   } else if (current.jobs.length === 0) {
-    jobsCard.append(h('div', { class: 'cih-pad cih-muted', text: active ? 'No jobs have started yet.' : 'This run has no jobs.' }));
+    jobsCard.append(h('div', { class: 'cih-pad cih-muted', text: active ? t('detail.noJobsStarted') : t('detail.runNoJobs') }));
   }
   const jobs = h('div', { class: 'cih-jobs' });
   for (const job of current.jobs) {
     const jt = conclusionTone(job.conclusion, job.status);
-    const jl = conclusionLabel(job.conclusion, job.status);
+    const jl = labelOf(job.conclusion, job.status);
     const jd = job.startedAt ? (job.finishedAt ?? now) - job.startedAt : null;
     const selected = job.id === current.jobId;
     const row = h('div', { class: 'cih-job-row' });
@@ -260,8 +278,8 @@ const renderDetail = (app: App, current: Detail) => {
         h('button', {
           class: 'cih-job-fix',
           type: 'button',
-          text: 'Fix',
-          title: 'Open a new session to fix this job',
+          text: t('detail.fix'),
+          title: t('detail.openSessionFix'),
           onclick: (event: Event) => {
             event.stopPropagation();
             void app.sendToAgent(run, job.id, false, 'fix');
@@ -275,7 +293,7 @@ const renderDetail = (app: App, current: Detail) => {
       const steps = h('div', { class: 'cih-steps' });
       for (const step of job.steps) {
         const st = conclusionTone(step.conclusion, step.status);
-        const sl = conclusionLabel(step.conclusion, step.status);
+        const sl = labelOf(step.conclusion, step.status);
         const sd = step.startedAt && step.finishedAt ? step.finishedAt - step.startedAt : null;
         steps.append(
           h(
@@ -283,7 +301,7 @@ const renderDetail = (app: App, current: Detail) => {
             { class: 'cih-step', 'data-failed': failed?.number === step.number ? 'true' : 'false' },
             dot(st, sl),
             h('span', { text: step.name }),
-            h('span', { class: 'cih-muted', text: sd !== null ? formatDuration(sd) : step.conclusion === 'skipped' ? 'skipped' : '' }),
+            h('span', { class: 'cih-muted', text: sd !== null ? formatDuration(sd) : step.conclusion === 'skipped' ? t('con.skipped') : '' }),
           ),
         );
       }

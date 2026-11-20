@@ -9,6 +9,7 @@ import { buildHandoff, failedJobs, focusJob } from '../domain/handoff.ts';
 import type { Job, Run } from '../domain/types.ts';
 import { blockAnswer, blockTitle, readBlockArgs } from './blockModel.ts';
 import { h } from './dom.ts';
+import { t } from './i18n.ts';
 import { createSvc, errorText } from './port.ts';
 
 const CSS = `
@@ -60,7 +61,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
     let run: Run;
     let jobs: Job[];
     box.textContent = '';
-    box.append(h('div', { class: 'cihb-meta', text: 'Loading the run…' }));
+    box.append(h('div', { class: 'cihb-meta', text: t('block.loading') }));
     resize();
     try {
       ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: target }));
@@ -86,12 +87,12 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
           h('button', {
             class: 'cihb-sha',
             type: 'button',
-            title: 'Open the commit diff',
+            title: t('block.openCommit'),
             text: run.sha.slice(0, 7),
             onClick: () => void host.openCommit(run.sha).catch(() => undefined),
           }),
           duration ? h('span', { text: duration }) : null,
-          h('span', { text: `attempt ${run.attempt}` }),
+          h('span', { text: t('block.attempt', { n: run.attempt }) }),
         ),
       );
       const failed = failedJobs(jobs);
@@ -111,7 +112,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
       const rerun = h('button', {
         class: 'cihb-btn',
         type: 'button',
-        text: isFailed(run) ? 'Re-run failed jobs' : 'Re-run',
+        text: isFailed(run) ? t('block.rerunFailed') : t('block.rerun'),
         onClick: async () => {
           rerun.disabled = true;
           try {
@@ -130,7 +131,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
           h('button', {
             class: 'cihb-btn',
             type: 'button',
-            text: logOpen ? 'Hide the log' : 'Failing log',
+            text: logOpen ? t('block.hideLog') : t('block.failingLog'),
             onClick: async () => {
               logOpen = !logOpen;
               if (logOpen && log === null) {
@@ -155,7 +156,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
         h('button', {
           class: 'cihb-btn',
           type: 'button',
-          text: 'Fix with the agent',
+          text: t('block.fixWithAgent'),
           onClick: () => {
             const handoff = buildHandoff({ run, jobs, job, log, logTruncated, mode: 'fix' });
             void host.answerBlock(blockAnswer(handoff.text)).catch(() => undefined);
@@ -165,7 +166,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
       box.append(actions);
 
       if (logOpen && log !== null) {
-        box.append(h('pre', { class: 'cihb-log', text: `${logTruncated ? '… (tail of the log)\n' : ''}${log.slice(-8000)}` }));
+        box.append(h('pre', { class: 'cihb-log', text: `${logTruncated ? t('block.logTail') : ''}${log.slice(-8000)}` }));
       }
       resize();
     };

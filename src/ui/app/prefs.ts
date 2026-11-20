@@ -3,6 +3,7 @@
 // service itself honours them even when no frame is open.
 
 import { h } from '../dom.ts';
+import { t } from '../i18n.ts';
 import type { App } from './state.ts';
 import { prefRows } from './turnCi.ts';
 
@@ -21,13 +22,13 @@ export const mountPrefs = (app: App, anchor: HTMLElement): { sync(): void } => {
     class: 'cih-prefs-toggle',
     type: 'button',
     text: '⚙',
-    title: 'CI Hub preferences',
-    'aria-label': 'CI Hub preferences',
+    title: t('prefs.title'),
+    'aria-label': t('prefs.title'),
     'aria-expanded': 'false',
   });
-  const pop = h('div', { class: 'cih-prefs', role: 'dialog', 'aria-label': 'CI Hub preferences', hidden: true });
+  const pop = h('div', { class: 'cih-prefs', role: 'dialog', 'aria-label': t('prefs.title'), hidden: true });
   const rowsEl = h('div', { class: 'cih-prefs-rows' });
-  pop.append(h('div', { class: 'cih-prefs-title', text: 'CI Hub preferences' }), rowsEl);
+  pop.append(h('div', { class: 'cih-prefs-title', text: t('prefs.title') }), rowsEl);
   anchor.append(toggle, pop);
 
   const renderRows = () => {
@@ -39,7 +40,7 @@ export const mountPrefs = (app: App, anchor: HTMLElement): { sync(): void } => {
           h('button', {
             type: 'button',
             class: 'cih-seg-option',
-            text: on ? 'On' : 'Off',
+            text: on ? t('prefs.on') : t('prefs.off'),
             'aria-pressed': String(row.on === on),
             onClick: () => void set(row.id, on),
           }),
@@ -57,7 +58,7 @@ export const mountPrefs = (app: App, anchor: HTMLElement): { sync(): void } => {
       prefs = await app.svc<Prefs>({ method: 'PUT', path: '/prefs', body: { [id]: on } });
     } catch (err) {
       prefs = before;
-      app.toast('error', err instanceof Error ? err.message : 'Could not save the preference.');
+      app.toast('error', err instanceof Error ? err.message : t('prefs.saveFailed'));
     }
     renderRows();
   };

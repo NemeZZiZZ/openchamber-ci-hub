@@ -2,10 +2,11 @@
 // failures first. Read-only; clicking a row opens the run detail.
 
 import { mountSelect } from '@openchamber/sdk/ui';
-import { conclusionLabel, conclusionTone, formatAgo, isActive, runDurationLabel } from '../../domain/format.ts';
+import { conclusionLabel, conclusionTone, isActive, runDurationLabel } from '../../domain/format.ts';
 import type { Run } from '../../domain/types.ts';
 import type { OverviewRepo } from '../../service/engine.ts';
 import { h } from '../dom.ts';
+import { agoText, t } from '../i18n.ts';
 import { button, type App } from './state.ts';
 
 export interface BoardRow {
@@ -62,8 +63,8 @@ export const renderBoard = (app: App) => {
     h(
       'div',
       { class: 'cih-bar' },
-      button(side, { label: s.wide ? 'Close' : '← Runs', variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
-      h('span', { class: 'cih-title cih-bar-grow', text: 'Board' }),
+      button(side, { label: s.wide ? t('board.close') : t('board.backRuns'), variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
+      h('span', { class: 'cih-title cih-bar-grow', text: t('bar.board') }),
     ),
   );
 
@@ -78,7 +79,7 @@ export const renderBoard = (app: App) => {
   side.el.append(pills);
   const providerSelect = mountSelect(providerAt, {
     value: s.boardProvider,
-    options: [{ id: '', label: 'All providers' }, ...boardProviders(repos, s.boardProvider, providers)],
+    options: [{ id: '', label: t('board.allProviders') }, ...boardProviders(repos, s.boardProvider, providers)],
     onChange: (id) => {
       s.boardProvider = id;
       providerSelect.update({ value: id });
@@ -89,9 +90,9 @@ export const renderBoard = (app: App) => {
   const statusSelect = mountSelect(statusAt, {
     value: s.boardFilter,
     options: [
-      { id: 'all', label: 'All statuses' },
-      { id: 'failed', label: 'Failed' },
-      { id: 'running', label: 'Running' },
+      { id: 'all', label: t('board.allStatuses') },
+      { id: 'failed', label: t('bar.failed') },
+      { id: 'running', label: t('bar.running') },
     ],
     onChange: (id) => {
       s.boardFilter = id === 'failed' || id === 'running' ? id : 'all';
@@ -105,9 +106,9 @@ export const renderBoard = (app: App) => {
 
   const list = h('div', { style: 'display:flex;flex-direction:column;gap:6px;padding:0 10px 12px' });
   if (repos.length === 0) {
-    list.append(h('div', { class: 'cih-muted', text: s.overviewLoading ? 'Loading…' : 'Watch repositories to see them here.' }));
+    list.append(h('div', { class: 'cih-muted', text: s.overviewLoading ? t('board.loading') : t('board.watchHint') }));
   } else if (rows.length === 0) {
-    list.append(h('div', { class: 'cih-muted', text: 'No repositories match these filters.' }));
+    list.append(h('div', { class: 'cih-muted', text: t('board.noMatch') }));
   }
   for (const row of rows) {
     const { repo, run } = row;
@@ -117,7 +118,7 @@ export const renderBoard = (app: App) => {
           'div',
           { class: 'cih-card' },
           h('div', { class: 'cih-card-head' }, h('span', { class: 'cih-card-title', text: repo.name })),
-          h('div', { class: 'cih-card-sub', ...(repo.error ? { 'data-tone': 'error' } : {}) }, h('span', { class: 'cih-muted', text: repo.error ?? 'No runs yet' })),
+          h('div', { class: 'cih-card-sub', ...(repo.error ? { 'data-tone': 'error' } : {}) }, h('span', { class: 'cih-muted', text: repo.error ?? t('board.noRuns') })),
         ),
       );
       continue;
@@ -137,7 +138,7 @@ export const renderBoard = (app: App) => {
       h(
         'div',
         { class: 'cih-card-sub', style: 'padding:4px 10px 8px' },
-        h('span', { class: 'cih-muted', text: `${run.workflow} #${run.number} · ${run.branch || run.sha.slice(0, 7)} · ${formatAgo(run.finishedAt ?? run.createdAt)}` }),
+        h('span', { class: 'cih-muted', text: `${run.workflow} #${run.number} · ${run.branch || run.sha.slice(0, 7)} · ${agoText(run.finishedAt ?? run.createdAt)}` }),
       ),
     );
     const open = () => app.openRun(run);

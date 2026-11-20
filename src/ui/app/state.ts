@@ -9,6 +9,7 @@ import type { LogLine } from '../../domain/log.ts';
 import type { DispatchInput, Job, Run, WorkflowRef } from '../../domain/types.ts';
 import type { OverviewRepo, OverviewView, StateView } from '../../service/engine.ts';
 import { clear, h, slot } from '../dom.ts';
+import { t } from '../i18n.ts';
 import type { ServiceError, Svc } from '../port.ts';
 import type { HistoryState, MoreRow, Scope, TreeFilter } from '../treeModel.ts';
 
@@ -224,7 +225,7 @@ export const backBar = (app: App, title: string) => {
   return h(
     'div',
     { class: 'cih-bar' },
-    button(app.side, { label: '← Runs', variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
+    button(app.side, { label: t('state.backRuns'), variant: 'ghost', size: 'sm', onClick: () => app.show({ kind: 'list' }) }),
     h('span', { class: 'cih-title cih-bar-grow', text: title }),
   );
 };

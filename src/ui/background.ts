@@ -6,6 +6,7 @@
 import type { AttachIssueRequest, GuestActionItem, HostClient, HostReadyContext } from '@openchamber/sdk';
 import { isFailedConclusion } from '../domain/format.ts';
 import type { Conclusion } from '../domain/types.ts';
+import { t } from './i18n.ts';
 import { createSvc, errorText } from './port.ts';
 
 export interface AgentRun {
@@ -73,11 +74,11 @@ export const startBackground = (host: HostClient, ctx: HostReadyContext): void =
     const runs = await latest(ctx.directory);
     if (request.command === 'ci-status') {
       const run = runs[0];
-      if (!run) throw new Error('No CI runs for this folder yet.');
+      if (!run) throw new Error(t('background.noRunsFolder'));
       return statusChip(run);
     }
     const failed = pickFixRun(runs);
-    if (!failed) throw new Error(runs.length ? 'The latest CI runs for this folder are not failing.' : 'No CI runs for this folder yet.');
+    if (!failed) throw new Error(runs.length ? t('background.latestOk') : t('background.noRunsFolder'));
     return fixChip(failed);
   });
 
@@ -87,13 +88,12 @@ export const startBackground = (host: HostClient, ctx: HostReadyContext): void =
       const runs = await latest(item.directory);
       const run = runs[0];
       if (!run) {
-        await host.toast({ kind: 'info', message: 'No CI runs for this folder yet.' });
+        await host.toast({ kind: 'info', message: t('background.noRunsFolder') });
         return;
       }
-      const label = `${run.workflow} #${run.number} on ${run.branch ?? run.repo}`;
-      if (isFailedConclusion(run.conclusion)) await host.toast({ kind: 'error', message: `CI failed: ${label}` });
-      else if (run.status !== 'completed') await host.toast({ kind: 'info', message: `CI running: ${label}` });
-      else await host.toast({ kind: 'success', message: `CI ${run.conclusion ?? 'finished'}: ${label}` });
+      if (isFailedConclusion(run.conclusion)) await host.toast({ kind: 'error', message: t('background.failedToast') });
+      else if (run.status !== 'completed') await host.toast({ kind: 'info', message: t('background.runningToast') });
+      else await host.toast({ kind: 'success', message: t('background.doneToast') });
     } catch (err) {
       await host.toast({ kind: 'error', message: errorText(err) });
     }

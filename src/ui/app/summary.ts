@@ -6,6 +6,7 @@ import { HostRequestError, type LateGenerateResult } from '@openchamber/sdk';
 import { summaryKey, summaryKeyFromPrompt, summaryRequest } from '../../domain/summary.ts';
 import { isFailed } from '../../domain/format.ts';
 import { h } from '../dom.ts';
+import { t } from '../i18n.ts';
 import { button, type App, type Region } from './state.ts';
 
 interface Entry {
@@ -34,9 +35,7 @@ export const lateSummary = (
   if (!late.ok) {
     hooks.toast(
       'info',
-      late.code === 'NO_MODEL'
-        ? 'No small model is configured in OpenChamber.'
-        : `CI Hub: could not summarize the failure (${late.error}).`,
+      late.code === 'NO_MODEL' ? t('summary.noModel') : t('summary.lateFailed', { error: late.error }),
     );
     return null;
   }
@@ -65,14 +64,14 @@ export const renderSummary = (app: App, region: Region): void => {
   const box = h('div', { class: 'cih-summary' });
 
   if (entry.text) {
-    box.append(h('div', { class: 'cih-card-title', text: 'Why it failed' }), h('div', { class: 'cih-summary-text', text: entry.text }));
+    box.append(h('div', { class: 'cih-card-title', text: t('summary.why') }), h('div', { class: 'cih-summary-text', text: entry.text }));
     region.el.append(box);
     return;
   }
 
   box.append(
     button(region, {
-      label: entry.loading ? 'Asking the small model…' : 'Why it failed',
+      label: entry.loading ? t('summary.asking') : t('summary.why'),
       size: 'xs',
       variant: 'outline',
       disabled: entry.loading,
@@ -95,9 +94,9 @@ export const renderSummary = (app: App, region: Region): void => {
       await app.host.storage.set(key, entry.text).catch(() => undefined);
     } catch (err) {
       if (err instanceof HostRequestError && err.code === 'NO_MODEL') {
-        app.toast('info', 'No small model is configured in OpenChamber.');
+        app.toast('info', t('summary.noModel'));
       } else {
-        app.toast('error', err instanceof Error ? err.message : 'The summary failed.');
+        app.toast('error', err instanceof Error ? err.message : t('summary.failed'));
       }
     } finally {
       entry.loading = false;

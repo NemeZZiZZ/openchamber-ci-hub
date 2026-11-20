@@ -5,6 +5,7 @@
 import { GUEST_BLOCK_ANSWER_MAX } from '@openchamber/sdk';
 import { parseRepoKey } from '../domain/repoKey.ts';
 import type { Run } from '../domain/types.ts';
+import { conLabel, t } from './i18n.ts';
 
 const DIGITS = /^\d+$/;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -14,10 +15,10 @@ const RUN_URL = new RegExp(String.raw`\/(?:actions\/runs|runs|pipelines|pipeline
 export const readBlockArgs = (args: Record<string, string>): { repo: string; runId: string } => {
   const repo = typeof args.repo === 'string' ? args.repo.trim() : '';
   if (!repo || !parseRepoKey(repo)) {
-    throw new Error('CiRun needs a "repo" argument: the repository key, as provider:host/owner/name.');
+    throw new Error(t('block.needRepo'));
   }
   const raw = typeof args.runId === 'string' ? args.runId.trim() : '';
-  if (!raw) throw new Error('CiRun needs a "runId" argument: the run id or its URL.');
+  if (!raw) throw new Error(t('block.needRunId'));
   const bare = raw.replace(/^\{|\}$/g, '');
   const candidate = DIGITS.test(bare) || UUID.test(bare) ? bare : RUN_URL.exec(raw)?.[1]?.replace(/^\{|\}$/g, '');
   const runId = candidate;
@@ -27,6 +28,7 @@ export const readBlockArgs = (args: Record<string, string>): { repo: string; run
   return { repo, runId };
 };
 
-export const blockTitle = (run: Run): string => `${run.workflow} #${run.number} · ${run.conclusion ?? run.status}`;
+export const blockTitle = (run: Run): string =>
+  t('block.titleStatus', { workflow: run.workflow, number: run.number, status: conLabel(run.conclusion ?? run.status) });
 
 export const blockAnswer = (handoffText: string): string => handoffText.slice(0, GUEST_BLOCK_ANSWER_MAX);

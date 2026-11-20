@@ -5,30 +5,31 @@ import { isActive, isFailed } from '../../domain/format.ts';
 import { focusJob } from '../../domain/handoff.ts';
 import type { Job, Run } from '../../domain/types.ts';
 import { errorText } from '../port.ts';
+import { t } from '../i18n.ts';
 import { viewFor } from './providers.ts';
 import type { App } from './state.ts';
 
 export const runMenuItems = (app: App, run: Run): MenuItem[] => {
   const active = isActive(run);
-  const { label, words, capabilities } = viewFor(app, run.repo);
+  const { label, capabilities } = viewFor(app, run.repo);
   const writes: MenuItem[] = [];
-  if (capabilities.rerunFailed) writes.push({ id: 'rerun-failed', label: words.rerunFailed, disabled: active || !isFailed(run) });
-  if (capabilities.rerunAll) writes.push({ id: 'rerun-all', label: words.rerunAll, disabled: active });
+  if (capabilities.rerunFailed) writes.push({ id: 'rerun-failed', label: t('providers.rerunFailedJobs'), disabled: active || !isFailed(run) });
+  if (capabilities.rerunAll) writes.push({ id: 'rerun-all', label: t('providers.rerunAllJobs'), disabled: active });
   if (capabilities.approve && run.status === 'waiting') {
-    writes.push({ id: 'approve', label: 'Approve' });
-    writes.push({ id: 'decline', label: 'Decline', destructive: true });
+    writes.push({ id: 'approve', label: t('runMenu.approve') });
+    writes.push({ id: 'decline', label: t('runMenu.decline'), destructive: true });
   }
-  if (capabilities.cancel) writes.push({ id: 'cancel', label: 'Cancel run', destructive: true, disabled: !active });
+  if (capabilities.cancel) writes.push({ id: 'cancel', label: t('runMenu.cancelRun'), destructive: true, disabled: !active });
   return [
-    { id: 'open', label: 'Open details' },
+    { id: 'open', label: t('runMenu.openDetails') },
     ...writes,
     { separator: true as const },
-    { id: 'agent', label: 'Send to agent' },
-    { id: 'agent-worktree', label: 'Send to agent in a new worktree' },
+    { id: 'agent', label: t('runMenu.sendAgent') },
+    { id: 'agent-worktree', label: t('runMenu.sendWorktree') },
     { separator: true as const },
-    { id: 'web', label: `Open on ${label}` },
-    { id: 'copy', label: 'Copy run link' },
-    { id: 'copy-log', label: 'Copy log link' },
+    { id: 'web', label: t('runMenu.openOn', { name: run.workflow, label }) },
+    { id: 'copy', label: t('runMenu.copyRun') },
+    { id: 'copy-log', label: t('runMenu.copyLog') },
   ];
 };
 
@@ -36,7 +37,7 @@ const copy = (app: App, text: string, done: string) =>
   app.host
     .writeClipboard(text)
     .then(() => app.toast('success', done))
-    .catch((err: unknown) => app.toast('error', `Could not copy: ${errorText(err)}`));
+    .catch((err: unknown) => app.toast('error', t('runMenu.copyFailed', { message: errorText(err) })));
 
 /** The log link of the given job, or of the job a failure would open on. */
 const copyLogLink = async (app: App, run: Run, jobId: string | null) => {
@@ -48,10 +49,10 @@ const copyLogLink = async (app: App, run: Run, jobId: string | null) => {
         : (await app.svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: { repo: run.repo, id: run.id } })).jobs;
     const job = (jobId ? jobs.find((entry) => entry.id === jobId) : null) ?? focusJob(jobs);
     if (!job) {
-      app.toast('info', 'This run has no jobs yet.');
+      app.toast('info', t('runMenu.jobNotFound'));
       return;
     }
-    await copy(app, job.url, `Log link for ${job.name} copied.`);
+    await copy(app, job.url, t('runMenu.logLinkCopied', { name: job.name }));
   } catch (err) {
     app.toast('error', `Could not find the job: ${errorText(err)}`);
   }
@@ -79,7 +80,7 @@ export const onRunMenu = (app: App, run: Run, id: string, jobId: string | null =
       void app.host.openUrl(run.url);
       break;
     case 'copy':
-      void copy(app, run.url, 'Run link copied.');
+      void copy(app, run.url, t('runMenu.linkCopied'));
       break;
     case 'copy-log':
       void copyLogLink(app, run, jobId);

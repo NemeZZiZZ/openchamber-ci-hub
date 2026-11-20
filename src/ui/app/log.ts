@@ -3,6 +3,7 @@
 import { mountSearchField, mountSpinner, mountTabs } from '@openchamber/sdk/ui';
 import { byteLength, formatBytes, type LogLine } from '../../domain/log.ts';
 import { clear, h, slot } from '../dom.ts';
+import { t } from '../i18n.ts';
 import { viewFor } from './providers.ts';
 import { renderSummary } from './summary.ts';
 import { button, debounce, FOCUS_AFTER, FOCUS_BEFORE, RENDER_CAP, type App, type Detail } from './state.ts';
@@ -85,26 +86,26 @@ export const renderLog = (app: App) => {
   const bar = h(
     'div',
     { class: 'cih-card-head' },
-    h('span', { class: 'cih-card-title', text: 'Log' }),
+    h('span', { class: 'cih-card-title', text: t('log.log') }),
     h('span', { class: 'cih-card-sub cih-bar-grow', title: job.name, text: job.name }),
   );
   if (log?.text !== null && log?.text !== undefined) {
-    bar.append(h('span', { class: 'cih-card-sub', text: `${log.truncated ? 'last ' : ''}${formatBytes(byteLength(log.text))}` }));
+    bar.append(h('span', { class: 'cih-card-sub', text: t('log.sizeLast', { size: formatBytes(byteLength(log.text)) }) }));
   }
   region.el.append(bar);
 
   if (!log || log.loading) {
     const at = slot();
-    region.keep(mountSpinner(at, { size: 'sm', label: 'Loading log…' }));
+    region.keep(mountSpinner(at, { size: 'sm', label: t('log.loadingLog') }));
     region.el.append(h('div', { class: 'cih-pad' }, at));
     return;
   }
   if (log.error || log.text === null) {
-    const box = h('div', { class: 'cih-pad cih-muted', text: log.error ?? 'No log.' });
+    const box = h('div', { class: 'cih-pad cih-muted', text: log.error ?? t('log.noLog') });
     region.el.append(box);
     const row = h('div', { class: 'cih-pad cih-actions' });
-    if (job.status === 'completed') row.append(button(region, { label: 'Try again', size: 'xs', variant: 'outline', onClick: () => void app.loadLog(job, log.full) }));
-    row.append(button(region, { label: `Open job on ${site}`, size: 'xs', variant: 'ghost', onClick: () => void host.openUrl(job.url) }));
+    if (job.status === 'completed') row.append(button(region, { label: t('log.retry'), size: 'xs', variant: 'outline', onClick: () => void app.loadLog(job, log.full) }));
+    row.append(button(region, { label: t('log.openJobOn', { site }), size: 'xs', variant: 'ghost', onClick: () => void host.openUrl(job.url) }));
     region.el.append(row);
     return;
   }
@@ -114,8 +115,8 @@ export const renderLog = (app: App) => {
   region.keep(
     mountSearchField(searchAt, {
       value: current.query,
-      placeholder: 'Search the log',
-      label: 'Search the log',
+      placeholder: t('log.searchLog'),
+      label: t('log.searchLog'),
       onChange: (value) => {
         current.query = value;
         current.hit = 0;
@@ -134,8 +135,8 @@ export const renderLog = (app: App) => {
   region.keep(
     mountTabs(tabsAt, {
       items: [
-        { id: 'focus', label: firstError(log.lines) === -1 ? 'Last lines' : 'Around the failure' },
-        { id: 'all', label: 'Full log' },
+        { id: 'focus', label: firstError(log.lines) === -1 ? t('log.lastLines') : t('log.aroundFailure') },
+        { id: 'all', label: t('log.fullLog') },
       ],
       activeId: current.mode,
       onChange: (id) => {
@@ -149,7 +150,7 @@ export const renderLog = (app: App) => {
   if (log.truncated) {
     modes.append(
       button(region, {
-        label: log.full ? 'Showing up to 4 MB' : 'Load the whole log',
+        label: log.full ? t('log.upTo4mb') : t('log.loadFull'),
         size: 'xs',
         variant: 'ghost',
         disabled: log.full,
@@ -160,11 +161,11 @@ export const renderLog = (app: App) => {
       }),
     );
   }
-  modes.append(h('button', { class: 'cih-link cih-small', type: 'button', onclick: () => void host.openUrl(job.url) }, `Job on ${site} ↗`));
+  modes.append(h('button', { class: 'cih-link cih-small', type: 'button', onclick: () => void host.openUrl(job.url) }, t('log.jobOn', { site })));
   region.el.append(modes, tools);
   renderSummary(app, region);
 
-  const body = h('div', { class: 'cih-log-body', role: 'log', 'aria-label': `Log of ${job.name}` });
+  const body = h('div', { class: 'cih-log-body', role: 'log', 'aria-label': t('log.logOf', { job: job.name }) });
   region.el.append(body);
   s.logBody = body;
 
@@ -179,7 +180,7 @@ export const renderLog = (app: App) => {
   const paintHit = () => {
     hits.forEach((node, i) => (node.dataset.hit = i === current.hit ? 'current' : ''));
     hits[current.hit]?.scrollIntoView({ block: 'center' });
-    counter.textContent = hits.length ? `${current.hit + 1} of ${hits.length}` : current.query.trim() ? 'no matches' : '';
+    counter.textContent = hits.length ? t('log.hitOf', { hit: current.hit + 1, hits: hits.length }) : current.query.trim() ? t('log.noMatches') : '';
   };
 
   const drawLines = (fromSearch: boolean) => {
@@ -188,7 +189,7 @@ export const renderLog = (app: App) => {
     const { indices, hidden } = visibleLines(current, log.lines);
     if (current.mode === 'focus' && !query && indices.length > 0 && indices[0]! > 0) {
       body.append(
-        h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('button', { class: 'cih-link cih-small', type: 'button', onclick: () => { current.mode = 'all'; app.renderLog(); } }, `${indices[0]} earlier lines — show the full log`)),
+        h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('button', { class: 'cih-link cih-small', type: 'button', onclick: () => { current.mode = 'all'; app.renderLog(); } }, t('log.earlierLines', { n: indices[0]! }))),
       );
     }
     hits = [];
@@ -218,10 +219,10 @@ export const renderLog = (app: App) => {
     }
     body.append(fragment);
     if (current.mode === 'focus' && !query && hidden > 0 && indices.length > 0 && indices[indices.length - 1]! < log.lines.length - 1) {
-      body.append(h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('span', { text: `${log.lines.length - 1 - indices[indices.length - 1]!} more lines in the full log` })));
+      body.append(h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('span', { text: t('log.moreLines', { n: log.lines.length - 1 - indices[indices.length - 1]! }) })));
     }
     if (indices.length >= RENDER_CAP) {
-      body.append(h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('span', { text: `The rest is cut here; search narrows it down, or open the job on ${site}.` })));
+      body.append(h('div', { class: 'cih-ln cih-muted' }, h('span', { class: 'cih-ln-no' }, ''), h('span', { text: t('log.cutHere', { site }) })));
     }
     if (query) {
       if (current.hit >= hits.length) current.hit = 0;
