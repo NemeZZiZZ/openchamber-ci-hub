@@ -4,6 +4,7 @@ import { mountSearchField, mountSpinner, mountTabs } from '@openchamber/sdk/ui';
 import { byteLength, formatBytes, type LogLine } from '../../domain/log.ts';
 import { clear, h, slot } from '../dom.ts';
 import { viewFor } from './providers.ts';
+import { renderSummary } from './summary.ts';
 import { button, debounce, FOCUS_AFTER, FOCUS_BEFORE, RENDER_CAP, type App, type Detail } from './state.ts';
 
 const firstError = (lines: LogLine[]): number => {
@@ -161,6 +162,7 @@ export const renderLog = (app: App) => {
   }
   modes.append(h('button', { class: 'cih-link cih-small', type: 'button', onclick: () => void host.openUrl(job.url) }, `Job on ${site} ↗`));
   region.el.append(modes, tools);
+  renderSummary(app, region);
 
   const body = h('div', { class: 'cih-log-body', role: 'log', 'aria-label': `Log of ${job.name}` });
   region.el.append(body);

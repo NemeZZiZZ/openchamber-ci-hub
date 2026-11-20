@@ -36,7 +36,9 @@ import { restoreCachedOverview } from './app/overviewCache.ts';
 import { renderRepos } from './app/repos.ts';
 import { viewFor } from './app/providers.ts';
 import { onRunMenu, runMenuItems } from './app/runMenu.ts';
-import { readTurnCi, turnCiMessage } from './app/turnCi.ts';import { debounce, Region, SMALL_PX, WIDE_PX, type App, type AppState, type View } from './app/state.ts';
+import { readTurnCi, turnCiMessage } from './app/turnCi.ts';
+import { fileSummary } from './app/summary.ts';
+import { summaryKey, summaryKeyFromPrompt } from '../domain/summary.ts';import { debounce, Region, SMALL_PX, WIDE_PX, type App, type AppState, type View } from './app/state.ts';
 import { clear, h } from './dom.ts';
 import { createSvc } from './port.ts';
 import { CSS } from './styles.ts';
@@ -276,8 +278,17 @@ export const startApp = (host: HostClient, root: HTMLElement, ctx: HostReadyCont
     refetchAfterPoll();
   });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void app.loadOverview(true);
+  host.onLateGenerateResult((late) => {
+    if (!late.ok) return;
+    const key = summaryKeyFromPrompt(late.request.prompt);
+    if (!key) return;
+    const text = late.result.text.trim();
+    fileSummary(key, text);
+    void host.storage.set(key, text).catch(() => undefined);
+    if (s.detail?.run && summaryKey(s.detail.run) === key) app.renderLog();
+  });
+
+  document.addEventListener('visibilitychange', () => {    if (document.visibilityState === 'visible') void app.loadOverview(true);
   });
 
   layout();

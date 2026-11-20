@@ -25,7 +25,8 @@
     "contributes": {
       "capabilities": [
         "prompt",
-        "sessions"
+        "sessions",
+        "model"
       ],
       "marks": true,
       "sessionEvents": {

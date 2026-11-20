@@ -69,6 +69,10 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih-seg-option:hover{background:${hover}}
 .cih-seg-option[aria-pressed="true"]{background:${selection};font-weight:600}
 
+/* Small-Model summary above the log */
+.cih-summary{margin:0 10px 8px;padding:8px 10px;border:1px solid ${line};border-radius:${radius};background:${surface};display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.cih-summary-text{font-size:12.5px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+
 /* Notes above the tree and in the detail */
 .cih-notes:empty{display:none}
 .cih-notes{flex:none}
