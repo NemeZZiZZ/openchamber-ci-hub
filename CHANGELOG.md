@@ -24,8 +24,8 @@ the agent reads and acts on CI without a pasted mention.
   service's endpoint file (`~/.openchamber-ci-hub/endpoint.json`, mode 0600,
   removed on shutdown). `contributes.tools` renders the answers as cards;
   payloads are capped for the agent's context.
-- **Slash commands and a session action.** `/ci-status` attaches the folder's
-  latest run as a chip; `/ci-fix` attaches the latest failing run with fix
+- **Slash commands and a session action.** `/ci-status` attaches the latest run on
+  the folder's current branch as a chip; `/ci-fix` attaches the latest failing run with fix
   instructions; **Check CI** refreshes the folder and toasts the outcome. The
   hidden background frame owns `onResolve`; the panel never does.
 - **"Why it failed" summary.** A failed run's log view can ask the host's
