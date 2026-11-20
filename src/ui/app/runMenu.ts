@@ -54,7 +54,7 @@ const copyLogLink = async (app: App, run: Run, jobId: string | null) => {
     }
     await copy(app, job.url, t('runMenu.logLinkCopied', { name: job.name }));
   } catch (err) {
-    app.toast('error', `Could not find the job: ${errorText(err)}`);
+    app.toast('error', t('runMenu.jobLookupFailed', { message: errorText(err) }));
   }
 };
 

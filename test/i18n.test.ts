@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { agoText, conLabel, dirOf, localeName, pickLocale, setLocale, strings, t } from '../src/ui/i18n.ts';
+import { agoText, conLabel, dirOf, localeName, pickLocale, pluralTables, setLocale, strings, t, tPlural } from '../src/ui/i18n.ts';
 import { en } from '../src/ui/i18n/en.ts';
 import { formatAgo } from '../src/domain/format.ts';
 
@@ -38,7 +38,7 @@ describe('dirOf', () => {
     expect(dirOf('ar')).toBe('rtl');
   });
   test('everything else is ltr', () => {
-    for (const locale of ['en', 'de', 'fr', 'es', 'pt-BR', 'uk', 'ko', 'pl', 'ja', 'tr', 'nl', 'zh-CN', 'zh-TW']) {
+    for (const locale of ['en', 'de', 'fr', 'es', 'pt-BR', 'uk', 'ko', 'pl', 'ja', 'tr', 'nl', 'ru', 'zh-CN', 'zh-TW']) {
       expect(dirOf(locale)).toBe('ltr');
     }
   });
@@ -77,7 +77,7 @@ describe('locale catalogs', () => {
   test('every locale file is imported', async () => {
     const registry = (await import('../src/ui/i18n.ts')).locales;
     expect(Object.keys(registry).sort()).toEqual(
-      ['ar', 'de', 'en', 'es', 'fr', 'he', 'ja', 'ko', 'nl', 'pl', 'pt-BR', 'tr', 'uk', 'zh-CN', 'zh-TW'].sort(),
+      ['ar', 'de', 'en', 'es', 'fr', 'he', 'ja', 'ko', 'nl', 'pl', 'pt-BR', 'tr', 'uk', 'ru', 'zh-CN', 'zh-TW'].sort(),
     );
   });
   test('every locale has exactly the english keys with the same placeholders', async () => {
@@ -92,6 +92,66 @@ describe('locale catalogs', () => {
         );
       }
     }
+  });
+  test('every locale lists the english plural keys with an other form and matching placeholders', () => {
+    const enTable = pluralTables['en']!;
+    for (const [name, table] of Object.entries(pluralTables)) {
+      expect(Object.keys(table).sort(), name).toEqual(Object.keys(enTable).sort());
+      for (const [key, forms] of Object.entries(table)) {
+        expect(placeholders(forms['other']!), `${name}:${key}:other`).toEqual(placeholders(enTable[key]!['other']!));
+        for (const [category, form] of Object.entries(forms)) {
+          expect(placeholders(form!), `${name}:${key}:${category}`).toEqual(placeholders(enTable[key]!['other']!));
+          expect(['zero', 'one', 'two', 'few', 'many', 'other'], `${name}:${key}:${category}`).toContain(category);
+        }
+      }
+    }
+  });
+});
+
+describe('tPlural', () => {
+  const before = localeName();
+  test('english serves the other form for every count', () => {
+    setLocale('en');
+    expect(tPlural('tree.failedCount', 1)).toBe('1 failed');
+    expect(tPlural('tree.failedCount', 5)).toBe('5 failed');
+    expect(tPlural('ago.days', 3)).toBe('3d ago');
+    setLocale(before);
+  });
+  test('russian picks one, few and many', () => {
+    setLocale('ru');
+    expect(tPlural('tree.runningCount', 1)).toBe('1 выполняется');
+    expect(tPlural('tree.runningCount', 3)).toBe('3 выполняются');
+    expect(tPlural('tree.runningCount', 5)).toBe('5 выполняются');
+    expect(tPlural('tree.runningCount', 21)).toBe('21 выполняется');
+    expect(tPlural('detail.failedOf', 2, { failed: 2, total: 9 })).toBe('2 из 9 с ошибкой');
+    setLocale(before);
+  });
+  test('arabic distinguishes the few category and the dual', () => {
+    setLocale('ar');
+    expect(tPlural('tree.failedCount', 5)).toBe('5 فاشلات');
+    expect(tPlural('tree.failedCount', 3)).toBe('3 فاشلات');
+    expect(tPlural('ago.days', 2)).toBe('قبل 2 يومين');
+    expect(tPlural('ago.days', 11)).toBe('قبل 11 يومًا');
+    setLocale(before);
+  });
+  test('unknown keys fall back to the plain catalog string', () => {
+    setLocale('en');
+    expect(tPlural('tree.allGreen', 4)).toBe('all green');
+    setLocale(before);
+  });
+});
+
+describe('catalog key hygiene', () => {
+  test('every english key is referenced somewhere in src', async () => {
+    const src = new URL('../src/', import.meta.url).pathname;
+    const chunks: string[] = [];
+    for await (const path of new Bun.Glob('**/*.ts').scan({ cwd: src })) {
+      if (path.startsWith('ui/i18n/')) continue;
+      chunks.push(await Bun.file(src + path).text());
+    }
+    const all = chunks.join('\n');
+    const missing = Object.keys(en).filter((key) => !all.includes(`'${key}'`));
+    expect(missing).toEqual([]);
   });
 });
 

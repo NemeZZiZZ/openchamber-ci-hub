@@ -12,6 +12,7 @@ export const en = {
   'block.logTail': '… (tail of the log)\n',
   'block.needRepo': 'CiRun needs a "repo" argument: the repository key, as provider:host/owner/name.',
   'block.needRunId': 'CiRun needs a "runId" argument: the run id or its URL.',
+  'block.badRunId': 'CiRun: runId "{id}" is not a run id or a run URL.',
 
   'bar.allBranches': 'All branches',
   'bar.all': 'All',
@@ -45,6 +46,9 @@ export const en = {
   'confirm.created': 'Session created with the failure attached.',
   'confirm.createdUnsent':
     'Session created, but the first message did not send. The failure is attached; send it from there.',
+  'confirm.sentNew': 'Sent “{title}” to a new session.',
+  'confirm.worktreeBootstrap':
+    'The worktree was created at {directory}, but it did not finish setting up, so no session was started.',
 
   'detail.approve': 'Approve',
   'detail.cancel': 'Cancel',
@@ -99,8 +103,6 @@ export const en = {
   'notes.addRepo': 'Add a repository',
   'notes.checkAgain': 'Check again',
   'notes.retry': 'Try again',
-  'notes.nothingMatches': 'nothing matches',
-
   'prefs.title': 'CI Hub preferences',
   'prefs.saveFailed': 'Could not save the preference.',
   'prefs.on': 'On',
@@ -144,11 +146,7 @@ export const en = {
   'runMenu.linkCopied': 'Run link copied.',
   'runMenu.sendWorktree': 'Send to agent in a new worktree',
   'runMenu.sendAgent': 'Send to agent',
-  'runMenu.runNoJobs': 'This run has no jobs yet.',
-
   'state.backRuns': '← Runs',
-  'state.fullLog': 'Full log',
-
   'summary.asking': 'Asking the small model…',
   'summary.noModel': 'No small model is configured in OpenChamber.',
   'summary.failed': 'The summary failed.',
@@ -165,13 +163,7 @@ export const en = {
   'tree.allGreen': 'all green',
   'tree.noRuns': 'no runs',
 
-  'treeModel.noBranchRuns': 'No runs on these branches.',
-  'treeModel.noRunsYet': 'No runs yet.',
-  'treeModel.nothingMatches': 'Nothing matches.',
-  'treeModel.allQuiet': 'Nothing needs attention here.',
-
   'background.noRunsFolder': 'No CI runs for this folder yet.',
-  'background.latestFailed': 'The latest CI run failed. Fix it.',
   'background.latestOk': 'The latest CI runs for this folder are not failing.',
 
   'background.failedToast': 'The latest CI run failed. Fix it.',
@@ -182,14 +174,11 @@ export const en = {
   'tree.projectError': "Couldn't load runs for {name}: {message}",
   'tree.failedCount': '{n} failed',
   'tree.runningCount': '{n} running',
-  'tree.latestSuffix': ' · latest: {title}',
-  'tree.workflowMeta': '{name} · {conclusion} · {ago}',
+  'tree.latestRun': 'Latest run {title}',
   'tree.attempt': 'attempt {n}',
   'tree.flakyTwin': '{title} · flaky twin',
   'tree.loadError': "Couldn't load more runs: {message}",
   'tree.runLabel': '{workflow} #{number}',
-  'tree.durations': 'queued {queued} · ran {ran}',
-  'treeModel.checking': 'Checking CI…',
   'detail.attempt': 'attempt {n}',
   'detail.runningFor': 'running {duration}',
   'detail.took': 'took {duration}',
@@ -200,6 +189,7 @@ export const en = {
   'runMenu.logLinkCopied': 'Log link for {name} copied.',
   'runMenu.copyFailed': 'Could not copy: {message}',
   'runMenu.jobNotFound': 'This run has no jobs.',
+  'runMenu.jobLookupFailed': 'Could not find the job: {message}',
   'log.sizeLast': 'around the failure · last {size}',
   'log.openJobOn': 'Open job on {site}',
   'log.jobOn': 'Job on {site} ↗',
@@ -209,8 +199,8 @@ export const en = {
   'log.cutHere': 'The rest is cut here; search narrows it down, or open the job on {site}.',
   'log.hitOf': '{hit} of {hits}',
   'confirm.rerunFailedMsg': 'Re-run failed jobs on {name}?',
-  'confirm.nextAttempt': 'The next attempt ({n}) will re-run only the failed jobs.',
-  'confirm.newPipeline': 'Woodpecker starts a new pipeline; history stays in the old one.',
+  'confirm.startsAttempt': 'This starts attempt {n} and uses runner minutes.',
+  'confirm.newPipelineOn': 'This starts a new {noun} on {branch} and uses runner minutes.',
   'confirm.rerunAllMsg': 'Re-run all jobs on {name}?',
   'confirm.rerunFailedDone': 'Re-ran the failed jobs on {name}.',
   'confirm.rerunAllDone': 'Re-ran everything on {name}.',
@@ -220,8 +210,6 @@ export const en = {
   'confirm.approveDone': 'Approved {name}.',
   'confirm.declineMsg': 'Decline {name}?',
   'confirm.declineDone': 'Declined {name}.',
-  'confirm.worktreeFailed': 'Could not hand this {noun} to an agent: {message}',
-  'confirm.sentToSession': 'Sent to this session. The agent picks it up from here.',
   'confirm.handoffFailed': 'Could not hand this run to an agent: {message}',
   'dispatch.onRepo': 'on {repo}',
   'dispatch.cannotStart': "Can't start a workflow: {message}",
@@ -238,7 +226,6 @@ export const en = {
   'bar.needsAttention': 'Needs attention',
   'bar.attention': 'Attention',
   'bar.anyone': 'Anyone',
-  'bar.whoStarted': 'Who started it',
   'bar.allServices': 'All services',
   'bar.runWorkflow': 'Run a {noun}…',
   'bar.openOn': 'Open {name} on {label}',
@@ -274,6 +261,17 @@ export const en = {
   'noun.workflow': 'workflow',
   'noun.workflows': 'workflows',
   'turnCi.failedOn': 'CI failed on {where}: {workflow} #{number}',
+} as const;
+
+// Count-sensitive strings, keyed by Intl.PluralRules category. Only the forms
+// a language actually distinguishes are listed; lookups fall back to `other`.
+export const plurals = {
+  'tree.failedCount': { other: '{n} failed' },
+  'tree.runningCount': { other: '{n} running' },
+  'detail.failedOf': { other: '{failed} failed of {total}' },
+  'ago.min': { other: '{n} min ago' },
+  'ago.hours': { other: '{n}h ago' },
+  'ago.days': { other: '{n}d ago' },
 } as const;
 
 export type Strings = Record<keyof typeof en, string>;

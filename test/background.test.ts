@@ -13,6 +13,8 @@ const run = (over: Partial<AgentRun> = {}): AgentRun => ({
   conclusion: 'failure',
   attempt: 1,
   url: 'https://host/acme/app/actions/runs/100',
+  durationMs: null,
+  finishedAt: null,
   ...over,
 });
 

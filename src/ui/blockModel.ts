@@ -23,7 +23,7 @@ export const readBlockArgs = (args: Record<string, string>): { repo: string; run
   const candidate = DIGITS.test(bare) || UUID.test(bare) ? bare : RUN_URL.exec(raw)?.[1]?.replace(/^\{|\}$/g, '');
   const runId = candidate;
   if (!runId || !(DIGITS.test(runId) || UUID.test(runId))) {
-    throw new Error(`CiRun: runId "${raw.slice(0, 120)}" is not a run id or a run URL.`);
+    throw new Error(t('block.badRunId', { id: raw.slice(0, 120) }));
   }
   return { repo, runId };
 };

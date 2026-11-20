@@ -25,7 +25,7 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0}
 .cih-split{display:flex;flex:1 1 auto;min-height:0;min-width:0}
 .cih-col{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1 1 auto}
-.cih[data-wide="true"] .cih-col-list{flex:0 0 300px;width:300px;min-width:300px;max-width:300px;border-right:1px solid ${line}}
+.cih[data-wide="true"] .cih-col-list{flex:0 0 300px;width:300px;min-width:300px;max-width:300px;border-inline-end:1px solid ${line}}
 .cih[data-wide="true"] .cih-col-side{flex:1 1 0}
 /* The detail column is the height container its cards size against (cqh). */
 .cih-col-side{container:cih-side/size}
@@ -51,7 +51,7 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih-fbar-pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
 .cih-pill{flex:0 1 auto;min-width:0;max-width:100%}
 .cih-pill-grow{flex:1 1 120px;min-width:120px}
-.cih-pill-menu{flex:none;margin-left:auto}
+.cih-pill-menu{flex:none;margin-inline-start:auto}
 .cih-fbar-meta{font-size:11.5px;color:${muted};${ellipsis}}
 .cih[data-size="s"] .cih-pill-grow{flex-basis:100%}
 
@@ -59,7 +59,7 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih-pill-prefs{flex:none;position:relative}
 .cih-prefs-toggle{background:none;border:1px solid transparent;border-radius:${radius};color:inherit;font:inherit;font-size:13px;line-height:1;padding:5px 7px;cursor:pointer}
 .cih-prefs-toggle:hover{background:${hover}}
-.cih-prefs{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:290px;max-width:90vw;padding:10px;border:1px solid ${line};border-radius:${radius};background:${card};box-shadow:0 8px 28px rgb(0 0 0 / 0.25)}
+.cih-prefs{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:40;width:290px;max-width:90vw;padding:10px;border:1px solid ${line};border-radius:${radius};background:${card};box-shadow:0 8px 28px rgb(0 0 0 / 0.25)}
 .cih-prefs-title{font-weight:600;font-size:12px;margin-bottom:8px}
 .cih-prefs-rows{display:flex;flex-direction:column;gap:10px}
 .cih-prefs-row{display:flex;flex-direction:column;gap:5px}
@@ -99,7 +99,7 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 .cih-tree-canvas{position:relative;width:100%}
 .cih-tree-sticky{position:sticky;top:0;height:0;z-index:2}
 .cih-tree-sticky .cih-tr{height:36px;box-shadow:0 1px 0 ${line}}
-.cih-tr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0;color:inherit;font:inherit;text-align:left;border:0;background:transparent;width:100%}
+.cih-tr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0;color:inherit;font:inherit;text-align:start;border:0;background:transparent;width:100%}
 button.cih-tr,.cih-tr-run{cursor:pointer}
 button.cih-tr:hover,button.cih-tr:focus-visible,.cih-tr-run:hover,.cih-tr-run:focus-visible{background:${hover};outline:none}
 .cih-tr-project{background:${surface};border-top:1px solid ${line};font-weight:600}
@@ -114,22 +114,24 @@ button.cih-tr:hover,button.cih-tr:focus-visible,.cih-tr-run:hover,.cih-tr-run:fo
 .cih-chev{flex:none;width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;color:${muted};transition:transform .12s}
 .cih-chev::before{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg)}
 .cih-chev[data-open="true"]{transform:rotate(90deg)}
+[dir="rtl"] .cih-chev::before{transform:rotate(45deg)}
+[dir="rtl"] .cih-chev[data-open="true"]{transform:rotate(-90deg)}
 @media (prefers-reduced-motion:reduce){.cih-chev{transition:none}}
-.cih-tr-workflow{padding-left:20px}
+.cih-tr-workflow{padding-inline-start:20px}
 .cih-tr-workflow .cih-tr-name{flex:1 1 0}
-.cih-tr-run{padding-left:42px;border-left:2px solid transparent}
-.cih-tr-run[aria-current="true"]{background:${selection};border-left-color:var(--oc-primary,currentColor)}
+.cih-tr-run{padding-inline-start:42px;border-inline-start:2px solid transparent}
+.cih-tr-run[aria-current="true"]{background:${selection};border-inline-start-color:var(--oc-primary,currentColor)}
 .cih-tr-body{display:flex;flex-direction:column;min-width:0;flex:1 1 0;line-height:1.3}
 .cih-tr-title{${ellipsis}}
 .cih-tr-num{color:${muted}}
 .cih-tr-sub{${ellipsis};font-size:11.5px;color:${muted}}
 .cih-tr-meta{flex:none;font-size:11.5px;color:${muted}}
 .cih-tr-menu{flex:none;display:inline-flex}
-.cih-tr-more,.cih-tr-note{padding-left:42px;font-size:12px;color:${muted}}
+.cih-tr-more,.cih-tr-note{padding-inline-start:42px;font-size:12px;color:${muted}}
 .cih-tr-more{color:var(--oc-primary-text,inherit)}
 .cih-tr-more[data-loading="true"]{color:${muted};cursor:default}
 .cih-tr-more[data-tone="error"]{color:var(--oc-error-text,inherit)}
-.cih-tr-note{padding-left:34px;font-style:italic}
+.cih-tr-note{padding-inline-start:34px;font-style:italic}
 .cih[data-size="s"] .cih-tr-owner{display:none}
 
 /* Detail: cards */
@@ -148,21 +150,21 @@ button.cih-tr:hover,button.cih-tr:focus-visible,.cih-tr-run:hover,.cih-tr-run:fo
 .cih-section{padding:8px 10px 4px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:${muted}}
 .cih-card-jobs{flex:0 1 auto;max-height:max(30cqh,480px);min-height:min(25cqh,160px)}
 .cih-jobs{display:flex;flex-direction:column;padding:4px 0;flex:1 1 auto;min-height:0;overflow:auto}
-.cih-job{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;border:0;background:transparent;color:inherit;font:inherit;text-align:left;width:100%}
+.cih-job{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;border:0;background:transparent;color:inherit;font:inherit;text-align:start;width:100%}
 .cih-job:hover,.cih-job:focus-visible{background:${hover};outline:none}
 .cih-job[aria-current="true"]{background:${selection}}
 .cih-job-name{overflow-wrap:anywhere}
-.cih-job-row{display:flex;align-items:center;gap:4px;padding-right:10px}
+.cih-job-row{display:flex;align-items:center;gap:4px;padding-inline-end:10px}
 .cih-job-row .cih-job{width:auto;flex:1 1 auto;min-width:0}
 .cih-job-fix{flex:none;font-size:12px;padding:2px 8px;border:1px solid ${line};border-radius:${radius};background:transparent;color:inherit;cursor:pointer}
 .cih-job-fix:hover,.cih-job-fix:focus-visible{background:${hover};outline:none}
-.cih-steps{display:flex;flex-direction:column;padding:2px 10px 8px 28px;gap:1px}
+.cih-steps{display:flex;flex-direction:column;padding:2px 10px 8px;padding-inline-start:28px;gap:1px}
 .cih-step{display:grid;grid-template-columns:8px 1fr auto;gap:6px;align-items:center;font-size:12px;padding:2px 6px;border-radius:calc(${radius} - 4px)}
 .cih-step .cih-dot{width:8px;height:8px}
 .cih-step[data-failed="true"]{background:color-mix(in srgb,var(--oc-error,red) 14%,transparent);font-weight:600}
 
-/* Log */
-.cih-log{flex:1 0 0;min-height:max(30cqh,320px)}
+/* Log: always left-to-right — CI logs are code, so they never mirror. */
+.cih-log{flex:1 0 0;min-height:max(30cqh,320px);direction:ltr}
 .cih-log-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px}
 .cih-log-modes{border-bottom:1px solid ${line}}
 .cih-log-body{font-family:${mono};font-size:11.5px;line-height:1.45;padding:6px 0 10px;flex:1 1 0;min-height:0;overflow:auto;background:${surface};border-top:1px solid ${line};border-radius:0 0 ${radius} ${radius}}
@@ -172,7 +174,7 @@ button.cih-tr:hover,button.cih-tr:focus-visible,.cih-tr-run:hover,.cih-tr-run:fo
 .cih-ln[data-tone="warning"]{color:var(--oc-warning-text,inherit)}
 .cih-ln[data-tone="command"]{color:var(--oc-info-text,inherit)}
 .cih-ln[data-tone="group"]{font-weight:600;cursor:pointer}
-.cih-ln[data-depth="1"] .cih-ln-text{padding-left:14px}
+.cih-ln[data-depth="1"] .cih-ln-text{padding-inline-start:14px}
 .cih-ln mark{background:color-mix(in srgb,var(--oc-warning,orange) 40%,transparent);color:inherit;border-radius:2px}
 .cih-ln[data-hit="current"]{outline:1px solid var(--oc-warning,orange);outline-offset:-1px}
 .cih[data-size="s"] .cih-ln{gap:6px;padding:0 6px}

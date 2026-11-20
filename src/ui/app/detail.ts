@@ -8,7 +8,7 @@ import { parseLog } from '../../domain/log.ts';
 import { repoName } from '../../domain/repoKey.ts';
 import type { Conclusion, Job, Run, RunStatus } from '../../domain/types.ts';
 import { h, slot } from '../dom.ts';
-import { agoText, conLabel, t } from '../i18n.ts';
+import { agoText, conLabel, t, tPlural } from '../i18n.ts';
 import { errorText, ServiceError } from '../port.ts';
 import { viewFor } from './providers.ts';
 import { backBar, button, dot, note, Region, shortSha, type App, type Detail } from './state.ts';
@@ -234,7 +234,7 @@ const renderDetail = (app: App, current: Detail) => {
       { class: 'cih-card-head' },
       h('span', { class: 'cih-card-title', text: t('detail.jobs') }),
       current.jobs.length
-        ? h('span', { class: 'cih-card-sub', 'data-tone': failedCount ? 'error' : null, text: failedCount ? t('detail.failedOf', { failed: failedCount, total: current.jobs.length }) : `${current.jobs.length}` })
+        ? h('span', { class: 'cih-card-sub', 'data-tone': failedCount ? 'error' : null, text: failedCount ? tPlural('detail.failedOf', failedCount, { failed: failedCount, total: current.jobs.length }) : `${current.jobs.length}` })
         : null,
     ),
   );

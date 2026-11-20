@@ -5,6 +5,7 @@ import type { StartSessionRequest } from '@openchamber/sdk';
 import { mountButton } from '@openchamber/sdk/ui';
 import { EXTENSION_ID, type Run } from '../../domain/types.ts';
 import { h, slot } from '../dom.ts';
+import { t } from '../i18n.ts';
 import { errorText } from '../port.ts';
 import { viewFor } from './providers.ts';
 import { button, type App, type Confirm, type HandoffResponse, type RunActionKind } from './state.ts';
@@ -42,7 +43,7 @@ const renderConfirm = (app: App) => {
   row.append(
     go,
     button(confirmRegion, {
-      label: 'Keep as is',
+      label: t('confirm.keepAsIs'),
       size: 'xs',
       variant: 'ghost',
       onClick: () => {
@@ -65,35 +66,36 @@ export const askAction = (app: App, run: Run, kind: RunActionKind) => {
   const s = app.s;
   const name = `${run.workflow} #${run.number}`;
   const { words, capabilities } = viewFor(app, run.repo);
-  const again =
-    capabilities.rerunAll === 'new-pipeline'
-      ? `This starts a new ${words.run} on ${run.branch} and uses runner minutes.`
-      : `This starts attempt ${run.attempt + 1} and uses runner minutes.`;
+  const attempt = t('confirm.startsAttempt', { n: run.attempt + 1 });
   const copy = {
     'rerun-failed': {
-      message: `Re-run the failed jobs of ${name}? This starts attempt ${run.attempt + 1} and uses runner minutes.`,
+      message: `${t('confirm.rerunFailedMsg', { name })} ${attempt}`,
       label: words.rerunFailedShort,
-      done: `Re-running the failed jobs of ${name}.`,
+      done: t('confirm.rerunFailedDone', { name }),
     },
     'rerun-all': {
-      message: `Re-run every job of ${name}? ${again}`,
+      message: `${t('confirm.rerunAllMsg', { name })} ${
+        capabilities.rerunAll === 'new-pipeline'
+          ? t('confirm.newPipelineOn', { noun: words.run, branch: run.branch })
+          : attempt
+      }`,
       label: words.rerunAllShort,
-      done: `Re-running ${name}.`,
+      done: t('confirm.rerunAllDone', { name }),
     },
     cancel: {
-      message: `Cancel ${name}? Jobs that are running stop where they are.`,
-      label: 'Cancel run',
-      done: `Cancelling ${name}. ${words.cancelDelay}`,
+      message: t('confirm.cancelMsg', { name }),
+      label: t('confirm.cancelRun'),
+      done: `${t('confirm.cancelDone', { name })} ${words.cancelDelay}`,
     },
     approve: {
-      message: `Approve ${name}? It starts running.`,
-      label: 'Approve',
-      done: `Approved ${name}.`,
+      message: t('confirm.approveMsg', { name }),
+      label: t('confirm.approve'),
+      done: t('confirm.approveDone', { name }),
     },
     decline: {
-      message: `Decline ${name}? It will not run.`,
-      label: 'Decline',
-      done: `Declined ${name}.`,
+      message: t('confirm.declineMsg', { name }),
+      label: t('confirm.decline'),
+      done: t('confirm.declineDone', { name }),
     },
   }[kind];
   ask(app, {
@@ -160,18 +162,18 @@ export const sendToAgent = async (app: App, run: Run, jobId: string | null, work
       toast(
         'error',
         result.failure === 'bootstrap-failed'
-          ? `The worktree was created at ${result.directory}, but it did not finish setting up, so no session was started.`
-          : 'OpenChamber could not create the session.',
+          ? t('confirm.worktreeBootstrap', { directory: result.directory })
+          : t('confirm.noSession'),
       );
       return;
     }
     await host.openSession(result.sessionId).catch(() => undefined);
-    if (result.sent === 'sent') toast('success', `Sent “${handoff.title}” to a new session.`);
-    else if (result.sent === 'no-model') toast('info', 'Session created with the failure attached. Pick a model there to send it.');
-    else if (result.sent === 'failed') toast('error', 'Session created, but the first message did not send. The failure is attached; send it from there.');
-    else toast('success', 'Session created with the failure attached.');
+    if (result.sent === 'sent') toast('success', t('confirm.sentNew', { title: handoff.title }));
+    else if (result.sent === 'no-model') toast('info', t('confirm.createdPick'));
+    else if (result.sent === 'failed') toast('error', t('confirm.createdUnsent'));
+    else toast('success', t('confirm.created'));
   } catch (err) {
-    toast('error', `Could not hand this run to an agent: ${errorText(err)}`);
+    toast('error', t('confirm.handoffFailed', { message: errorText(err) }));
   } finally {
     s.busy.delete(key);
     app.renderSide();

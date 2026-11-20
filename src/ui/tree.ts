@@ -6,7 +6,7 @@ import { mountMenu, type MenuItem } from '@openchamber/sdk/ui';
 import { conclusionTone, formatEvent, runDurationLabel, trendPoints, trendSpan, type Tone } from '../domain/format.ts';
 import type { Conclusion, Run, RunStatus } from '../domain/types.ts';
 import { h } from './dom.ts';
-import { agoText, conLabel, t } from './i18n.ts';
+import { agoText, conLabel, t, tPlural } from './i18n.ts';
 import { offsets, projectFor, rowAt, ROW_HEIGHT, windowFor, type MoreRow, type ProjectRow, type TreeRow } from './treeModel.ts';
 
 export interface TreeCallbacks {
@@ -78,8 +78,8 @@ const sparkline = (trend: readonly number[]): SVGElement | null => {
 
 const summary = (row: ProjectRow): { text: string; tone: string } => {
   if (row.error) return { text: t('tree.projectError', { name: row.name, message: row.error }), tone: 'error' };
-  if (row.failed) return { text: t('tree.failedCount', { n: row.failed }), tone: 'error' };
-  if (row.running) return { text: t('tree.runningCount', { n: row.running }), tone: 'info' };
+  if (row.failed) return { text: tPlural('tree.failedCount', row.failed), tone: 'error' };
+  if (row.running) return { text: tPlural('tree.runningCount', row.running), tone: 'info' };
   if (row.total) return { text: t('tree.allGreen'), tone: 'success' };
   return { text: t('tree.noRuns'), tone: 'muted' };
 };
@@ -155,7 +155,7 @@ export const mountTree = (callbacks: TreeCallbacks): Tree => {
               onclick: () => callbacks.onToggle(row.key),
             },
             chevron(row.expanded),
-            dot(conclusionTone(latest.conclusion, latest.status), `Latest run ${label}`),
+            dot(conclusionTone(latest.conclusion, latest.status), t('tree.latestRun', { title: label })),
             h('span', { class: 'cih-tr-name', text: row.name }),
             h('span', { class: 'cih-tr-meta', text: `#${latest.number} · ${agoText(latest.createdAt)}` }),
             sparkline(row.trend),

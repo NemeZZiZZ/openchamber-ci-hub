@@ -5,22 +5,11 @@
 
 import type { AttachIssueRequest, GuestActionItem, HostClient, HostReadyContext } from '@openchamber/sdk';
 import { isFailedConclusion } from '../domain/format.ts';
-import type { Conclusion } from '../domain/types.ts';
+import type { AgentRun } from '../service/agentView.ts';
 import { t } from './i18n.ts';
 import { createSvc, errorText } from './port.ts';
 
-export interface AgentRun {
-  repo: string;
-  id: string;
-  number: number;
-  workflow: string;
-  branch: string | null;
-  sha: string;
-  status: string;
-  conclusion: Conclusion;
-  attempt: number;
-  url: string;
-}
+export type { AgentRun };
 
 export const CHIP_TEXT_MAX = 16_000;
 
@@ -50,7 +39,7 @@ export const fixChip = (run: AgentRun): AttachIssueRequest => ({
     'The latest CI run failed. Fix it.',
     describeRun(run),
     `Repository key: ${run.repo}`,
-    'Use ci_run_detail and ci_failing_log to read the failure, change the code the log indicts, then ci_rerun with failedOnly: true. Do not claim the run is green until ci_run_detail says so.',
+    'Use ci_run_detail and ci_failing_log to read the failure, change the code the log indicts, then ci_rerun. Do not claim the run is green until ci_run_detail says so.',
   ]
     .join('\n\n')
     .slice(0, CHIP_TEXT_MAX),

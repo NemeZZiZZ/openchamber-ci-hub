@@ -13,7 +13,7 @@ CI Hub's tools talk to the CI Hub service, which holds the provider tokens. Do n
 2. **Read the run.** `ci_run_detail` with the repo key and run id from step 1 gives status, conclusion, attempt, jobs and each failing step.
 3. **Read the failure.** `ci_failing_log` returns the error excerpt of the first failed job; pass `jobId` for a different job. The excerpt is capped, so a missing line means the log was trimmed, not that the error is absent.
 4. **Fix.** Change the code the log indicts. Never invent run ids, job names or log lines.
-5. **Re-run.** `ci_rerun` with `failedOnly: true` retries just the failed jobs. Report the answer's `ok`; do not claim the run is green until a later `ci_run_detail` says so.
+5. **Re-run.** `ci_rerun` retries just the failed jobs of the run. Report the answer's `ok`; do not claim the run is green until a later `ci_run_detail` says so.
 6. **Show it.** Put `CiRun("repo", "runId")` on its own line with the exact values from the tool answer. The user gets a live card with the status and the actions.
 
 ## Errors

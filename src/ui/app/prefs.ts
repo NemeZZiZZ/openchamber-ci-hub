@@ -4,14 +4,13 @@
 
 import { h } from '../dom.ts';
 import { t } from '../i18n.ts';
+import type { Prefs } from '../../service/prefs.ts';
 import type { App } from './state.ts';
 import { prefRows } from './turnCi.ts';
 
-interface Prefs {
-  marks: boolean;
-  toastOnTurnFailure: boolean;
-}
-
+// The service owns the defaults; the frame only needs the shape, so the type
+// is shared and the value stays local (a value import would pull node:fs into
+// the panel bundle).
 const DEFAULTS: Prefs = { marks: true, toastOnTurnFailure: true };
 
 export const mountPrefs = (app: App, anchor: HTMLElement): { sync(): void } => {

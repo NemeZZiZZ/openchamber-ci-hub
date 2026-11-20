@@ -68,6 +68,12 @@ The panel bar's ⚙ opens two switches, stored by the service (`prefs.json`), sh
 - **Sidebar marks** — off clears every mark and stops idle polling (nothing polls while no surface is open).
 - **Toast when CI fails after a turn** — when an agent's turn ends and its folder's branch has a failed run, an open CI Hub frame shows a toast. Marks refresh either way.
 
+## Localization
+
+The panel, the `CiRun` block and the slash-command background frame follow the OpenChamber host locale: **English, German, French, Spanish, Portuguese (Brazil), Dutch, Turkish, Polish, Ukrainian, Russian, Japanese, Korean, Simplified and Traditional Chinese, Hebrew and Arabic** — 16 catalogs with test-enforced key parity, `{placeholder}` parity and plural forms (`Intl.PluralRules`). Hebrew and Arabic mirror the layout as right-to-left.
+
+Text that only an agent or the host's own chrome reads stays English on purpose: the `ci_*` tool descriptions and answers, the `/ci-fix` handoff text, and the labels in the manifest's tool cards (`CI runs`, `Open run`, …) — the manifest has no localization mechanism.
+
 ## Account
 
 The service looks for a GitHub token in this order:
