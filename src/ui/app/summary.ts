@@ -2,8 +2,8 @@
 // per run attempt; a late generate result is filed by app.ts and lands here on
 // the next render.
 
-import { HostRequestError } from '@openchamber/sdk';
-import { summaryKey, summaryRequest } from '../../domain/summary.ts';
+import { HostRequestError, type LateGenerateResult } from '@openchamber/sdk';
+import { summaryKey, summaryKeyFromPrompt, summaryRequest } from '../../domain/summary.ts';
 import { isFailed } from '../../domain/format.ts';
 import { h } from '../dom.ts';
 import { button, type App, type Region } from './state.ts';
@@ -18,6 +18,31 @@ const entries = new Map<string, Entry>();
 /** Stores a late answer so the next render of that run shows it. */
 export const fileSummary = (key: string, text: string): void => {
   entries.set(key, { text, loading: false });
+};
+
+/**
+ * A generate answer that arrived after its frame was gone. Only prompts with
+ * our marker are ours; a failure still tells the user, it never files a text.
+ * Returns the filed key so the caller can re-render the run it belongs to.
+ */
+export const lateSummary = (
+  late: LateGenerateResult,
+  hooks: { toast(kind: 'success' | 'info' | 'error', message: string): void; file(key: string, text: string): void },
+): string | null => {
+  const key = summaryKeyFromPrompt(late.request.prompt);
+  if (!key) return null;
+  if (!late.ok) {
+    hooks.toast(
+      'info',
+      late.code === 'NO_MODEL'
+        ? 'No small model is configured in OpenChamber.'
+        : `CI Hub: could not summarize the failure (${late.error}).`,
+    );
+    return null;
+  }
+  const text = late.result.text.trim();
+  hooks.file(key, text);
+  return key;
 };
 
 const entryFor = (key: string): Entry => {

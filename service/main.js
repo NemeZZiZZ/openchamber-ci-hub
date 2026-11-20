@@ -3689,55 +3689,96 @@ var markFor = (run) => {
 var targetOf2 = (row) => row.branch ? { directory: row.directory, branch: row.branch } : { directory: row.directory };
 var createMarkSync = (deps) => {
   const max = deps.maxPerMinute ?? 60;
+  const now = deps.now ?? Date.now;
   const current = new Map;
   let windowStart = 0;
   let used = 0;
+  let lastRows = [];
+  let clearing = false;
+  let flushing = false;
+  let again = false;
+  let retryPending = false;
   const write = async (target, mark) => {
-    const t = Date.now();
+    const t = now();
     if (t - windowStart >= 60000) {
       windowStart = t;
       used = 0;
     }
     if (used >= max)
-      return false;
+      return "budget";
     used += 1;
-    await deps.setMark(target, mark).catch(() => {
-      return;
-    });
-    return true;
+    try {
+      await deps.setMark(target, mark);
+      return "ok";
+    } catch {
+      return "error";
+    }
   };
-  const clear = async () => {
-    for (const [key, entry] of current) {
-      if (!await write(entry.target, null))
-        break;
-      current.delete(key);
+  const desiredOf = () => {
+    const desired = new Map;
+    if (clearing)
+      return desired;
+    for (const row of lastRows) {
+      const mark = markFor(latestOnBranch(row.runs, row.branch));
+      if (!mark)
+        continue;
+      desired.set(`${row.directory}\x00${row.branch ?? ""}`, { target: targetOf2(row), mark });
+    }
+    return desired;
+  };
+  const flush = async () => {
+    if (flushing) {
+      again = true;
+      return;
+    }
+    flushing = true;
+    try {
+      do {
+        again = false;
+        const desired = desiredOf();
+        let done = true;
+        for (const [key, entry] of current) {
+          if (desired.has(key))
+            continue;
+          if (await write(entry.target, null) !== "ok") {
+            done = false;
+            break;
+          }
+          current.delete(key);
+        }
+        if (done) {
+          for (const [key, entry] of desired) {
+            const prev = current.get(key);
+            if (prev && JSON.stringify(prev.mark) === JSON.stringify(entry.mark))
+              continue;
+            if (await write(entry.target, entry.mark) !== "ok") {
+              done = false;
+              break;
+            }
+            current.set(key, entry);
+          }
+        }
+        if (!done && deps.timers && !retryPending) {
+          retryPending = true;
+          deps.timers.set(() => {
+            retryPending = false;
+            flush();
+          }, 1000);
+        }
+      } while (again);
+    } finally {
+      flushing = false;
     }
   };
   return {
-    clear,
+    async clear() {
+      clearing = true;
+      await flush();
+    },
     async sync(rows) {
-      const desired = new Map;
-      for (const row of rows) {
-        const mark = markFor(latestOnBranch(row.runs, row.branch));
-        if (!mark)
-          continue;
-        desired.set(`${row.directory}\x00${row.branch ?? ""}`, { target: targetOf2(row), mark });
-      }
-      for (const [key, entry] of current) {
-        if (desired.has(key))
-          continue;
-        if (!await write(entry.target, null))
-          return;
-        current.delete(key);
-      }
-      for (const [key, entry] of desired) {
-        const prev = current.get(key);
-        if (prev && JSON.stringify(prev.mark) === JSON.stringify(entry.mark))
-          continue;
-        if (!await write(entry.target, entry.mark))
-          return;
-        current.set(key, entry);
-      }
+      lastRows = rows;
+      clearing = false;
+      await flush();
     }
   };
 };
@@ -3933,6 +3974,8 @@ var createEngine = (deps) => {
     return Promise.all(list.map(async (server) => {
       const account = accountOf(server.provider, server.host);
       const cached = serverRepoCache.get(account);
+      if (blockOf(account))
+        return { ...server, list: cached?.list ?? null };
       if (cached && now() - cached.at < SERVER_REPOS_TTL_MS)
         return { ...server, list: cached.list };
       let busy2 = serverRepoBusy.get(account);
@@ -3948,7 +3991,15 @@ var createEngine = (deps) => {
             }
             evictOldest(forgeUrls);
             return repos2;
-          } catch {
+          } catch (err) {
+            if (err instanceof ProviderError && (err.kind === "rate-limit" || err.status === 429)) {
+              rates.set(account, {
+                remaining: 0,
+                resetAt: err.rateLimitReset,
+                blockedUntil: err.rateLimitReset ?? now() + 60000,
+                message: err.message
+              });
+            }
             serverRepoCache.set(account, { at: now(), list: serverRepoCache.get(account)?.list ?? null });
             return serverRepoCache.get(account)?.list ?? null;
           }
@@ -4229,6 +4280,7 @@ var createEngine = (deps) => {
   const pollRepo = async (key) => {
     const target = await repoInfo(key);
     const slot = slotFor(target.key);
+    let fresh = true;
     try {
       slot.runs = await call(target, (client) => client.listRuns(target.ref, { perPage: 40 }));
       slot.error = null;
@@ -4236,12 +4288,14 @@ var createEngine = (deps) => {
         slot.defaultBranch = await call(target, (client) => client.defaultBranch(target.ref)).catch(() => null);
       }
     } catch (err) {
+      fresh = false;
       if (!(err instanceof ProviderError && err.kind === "rate-limit") && !(err instanceof EngineError && err.status === 429)) {
         slot.error = describe(err);
       }
     }
     slot.polledAt = now();
     deps.emit("runs", { repo: target.key, polledAt: slot.polledAt });
+    return fresh;
   };
   const busy = (slot) => {
     const t = now();
@@ -4317,7 +4371,7 @@ var createEngine = (deps) => {
   const refreshMarks = async () => {
     if (!deps.setMark)
       return;
-    markSync ??= createMarkSync({ setMark: deps.setMark });
+    markSync ??= createMarkSync({ setMark: deps.setMark, timers, now });
     if (!(await getPrefs()).marks) {
       await markSync.clear();
       return;
@@ -4340,7 +4394,7 @@ var createEngine = (deps) => {
   };
   const notifiedTurns = new Set;
   const sessionEvent = async (request) => {
-    if (request.event.type !== "turn-finished")
+    if (request.event.type !== "turn-finished" && request.event.type !== "turn-failed")
       return { ok: true };
     const directory = request.event.project?.directory ?? null;
     if (!directory)
@@ -4349,12 +4403,12 @@ var createEngine = (deps) => {
     const found = await repoForDirectory(directory).catch(() => null);
     if (!found)
       return { ok: true };
-    await pollRepo(found.key).catch(() => {
-      return;
-    });
+    const fresh = await pollRepo(found.key).catch(() => false);
     await refreshMarks().catch(() => {
       return;
     });
+    if (!fresh)
+      return { ok: true };
     const run = latestOnBranch(slotFor(found.key).runs, found.branch);
     if (!run || !isFailed(run))
       return { ok: true };
@@ -4872,7 +4926,10 @@ var createEngine = (deps) => {
     const found = args.repo ? { key: args.repo, branch: null } : await repoForDirectory(args.directory ?? null);
     if (!found)
       return null;
-    await pollRepo(found.key);
+    const fresh = await pollRepo(found.key);
+    if (!fresh) {
+      throw new EngineError(slotFor(found.key).error ?? "The CI provider is rate-limited right now; no fresh data.", 502);
+    }
     const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
     return agentRunsView(runs, args.limit);
   };

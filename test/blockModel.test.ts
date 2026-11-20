@@ -36,22 +36,45 @@ describe('readBlockArgs', () => {
   });
 
   test('accepts a run URL in place of the id', () => {
-    expect(readBlockArgs({ repo: 'r', runId: 'https://github.com/acme/app/actions/runs/100' }).runId).toBe('100');
-    expect(readBlockArgs({ repo: 'r', runId: 'https://gitlab.com/acme/app/-/pipelines/4321' }).runId).toBe('4321');
+    expect(readBlockArgs({ repo: 'github:github.com/acme/app', runId: 'https://github.com/acme/app/actions/runs/100' }).runId).toBe('100');
+    expect(readBlockArgs({ repo: 'github:github.com/acme/app', runId: 'https://gitlab.com/acme/app/-/pipelines/4321' }).runId).toBe('4321');
   });
 
   test('rejects empty, missing and whitespace-only args', () => {
     expect(() => readBlockArgs({ repo: '', runId: '1' })).toThrow(/repo/);
     expect(() => readBlockArgs({ repo: '   ', runId: '1' })).toThrow(/repo/);
     expect(() => readBlockArgs({ runId: '1' } as Record<string, string>)).toThrow(/repo/);
-    expect(() => readBlockArgs({ repo: 'r', runId: '' })).toThrow(/runId/);
-    expect(() => readBlockArgs({ repo: 'r', runId: '  ' })).toThrow(/runId/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme/app', runId: '' })).toThrow(/runId/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme/app', runId: '  ' })).toThrow(/runId/);
   });
 
   test('rejects a run id that is not digits or a run URL', () => {
-    expect(() => readBlockArgs({ repo: 'r', runId: 'abc' })).toThrow(/runId/);
-    expect(() => readBlockArgs({ repo: 'r', runId: '12;rm -rf /' })).toThrow(/runId/);
-    expect(() => readBlockArgs({ repo: 'r', runId: 'https://github.com/acme/app' })).toThrow(/runId/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme/app', runId: 'abc' })).toThrow(/runId/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme/app', runId: '12;rm -rf /' })).toThrow(/runId/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme/app', runId: 'https://github.com/acme/app' })).toThrow(/runId/);
+  });
+
+  test('rejects a repo that is not a repository key', () => {
+    expect(() => readBlockArgs({ repo: 'not a repo', runId: '100' })).toThrow(/repo/);
+    expect(() => readBlockArgs({ repo: 'acme/app', runId: '100' })).toThrow(/repo/);
+    expect(() => readBlockArgs({ repo: 'github:github.com/acme', runId: '100' })).toThrow(/repo/);
+    expect(() => readBlockArgs({ repo: 'unknown:github.com/acme/app', runId: '100' })).toThrow(/repo/);
+  });
+
+  test('accepts a UUID run id and a UUID run URL', () => {
+    const uuid = '0c7f4b2a-1234-4abc-9def-0123456789ab';
+    expect(readBlockArgs({ repo: 'bitbucket:bitbucket.org/acme/app', runId: uuid }).runId).toBe(uuid);
+    expect(readBlockArgs({ repo: 'bitbucket:bitbucket.org/acme/app', runId: `{${uuid}}` }).runId).toBe(uuid);
+    expect(
+      readBlockArgs({ repo: 'bitbucket:bitbucket.org/acme/app', runId: `https://bitbucket.org/acme/app/pipelines/${uuid}` }).runId,
+    ).toBe(uuid);
+    expect(
+      readBlockArgs({ repo: 'bitbucket:bitbucket.org/acme/app', runId: `https://bitbucket.org/acme/app/pipelines/{${uuid}}` }).runId,
+    ).toBe(uuid);
+  });
+
+  test('accepts a singular pipeline URL', () => {
+    expect(readBlockArgs({ repo: 'woodpecker:ci.acme.io/acme/app', runId: 'https://ci.acme.io/repos/42/pipeline/128' }).runId).toBe('128');
   });
 });
 

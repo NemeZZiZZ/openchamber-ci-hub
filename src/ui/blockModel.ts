@@ -3,17 +3,27 @@
 // anything is fetched.
 
 import { GUEST_BLOCK_ANSWER_MAX } from '@openchamber/sdk';
+import { parseRepoKey } from '../domain/repoKey.ts';
 import type { Run } from '../domain/types.ts';
 
-const RUN_URL = /\/(?:actions\/runs|runs|pipelines)\/(\d+)(?:[/?#]|$)/;
+const DIGITS = /^\d+$/;
+const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const ID = String.raw`(\d+|\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}?)`;
+const RUN_URL = new RegExp(String.raw`\/(?:actions\/runs|runs|pipelines|pipeline)\/${ID}(?:[/?#]|$)`);
 
 export const readBlockArgs = (args: Record<string, string>): { repo: string; runId: string } => {
   const repo = typeof args.repo === 'string' ? args.repo.trim() : '';
-  if (!repo) throw new Error('CiRun needs a "repo" argument: the repository key, as provider:host/owner/name.');
+  if (!repo || !parseRepoKey(repo)) {
+    throw new Error('CiRun needs a "repo" argument: the repository key, as provider:host/owner/name.');
+  }
   const raw = typeof args.runId === 'string' ? args.runId.trim() : '';
   if (!raw) throw new Error('CiRun needs a "runId" argument: the run id or its URL.');
-  const runId = /^\d+$/.test(raw) ? raw : RUN_URL.exec(raw)?.[1];
-  if (!runId) throw new Error(`CiRun: runId "${raw.slice(0, 120)}" is not a run id or a run URL.`);
+  const bare = raw.replace(/^\{|\}$/g, '');
+  const candidate = DIGITS.test(bare) || UUID.test(bare) ? bare : RUN_URL.exec(raw)?.[1]?.replace(/^\{|\}$/g, '');
+  const runId = candidate;
+  if (!runId || !(DIGITS.test(runId) || UUID.test(runId))) {
+    throw new Error(`CiRun: runId "${raw.slice(0, 120)}" is not a run id or a run URL.`);
+  }
   return { repo, runId };
 };
 

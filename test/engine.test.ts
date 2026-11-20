@@ -1192,3 +1192,42 @@ describe('mentions', () => {
     expect(urls.some((url) => url.includes('/user/repos'))).toBe(false);
   });
 });
+
+describe('server discovery under a rate limit', () => {
+  test('a 429 from the server blocks further discovery fetches while it lasts', async () => {
+    let now = Date.parse('2026-11-14T12:00:00Z');
+    let serverCalls = 0;
+    const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
+      config: createMemoryConfigStore(),
+      audit: async () => undefined,
+      auth: {
+        readStore: async () => undefined,
+        readSettings: async () => ({ 'woodpecker-server': 'ci.acme.io', 'woodpecker-token': 'wp' }),
+        cliToken: async () => null,
+      },
+      fetch: async (url) => {
+        if (new URL(url).host === 'ci.acme.io') {
+          serverCalls++;
+          return new Response('{}', { status: 429 });
+        }
+        return Response.json({ default_branch: 'main' });
+      },
+      git: async (args) =>
+        args[0] === 'remote'
+          ? { code: 0, stdout: 'git@github.com:acme/app.git\n', stderr: '' }
+          : { code: 0, stdout: 'main\n', stderr: '' },
+      emit: () => undefined,
+      needsConfiguration: () => undefined,
+      now: () => now,
+      timers: { set: () => 0, clear: () => undefined },
+    });
+    await engine.state('/p/app');
+    expect(serverCalls).toBe(1);
+    // Past the 15 s discovery cache, still inside the 60 s rate-limit block;
+    // another directory defeats the per-directory detection cache.
+    now += 20_000;
+    await engine.state('/p/other');
+    expect(serverCalls).toBe(1);
+  });
+});

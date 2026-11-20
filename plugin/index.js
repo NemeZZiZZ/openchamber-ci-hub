@@ -10,10 +10,22 @@ export default {
   id: 'ci-hub',
   async setup() {
     let healthy = false;
+    let endpointSig = null;
     const ask = async (method, path, query, body) => {
       const endpoint = await readEndpoint();
+      // A restarted service writes a new endpoint file: its token and health
+      // must be proven again before any real call.
+      const sig = JSON.stringify([endpoint.port, endpoint.pid, endpoint.startedAt]);
+      if (sig !== endpointSig) {
+        endpointSig = sig;
+        healthy = false;
+      }
       if (!healthy) {
-        await callService(endpoint, 'GET', '/health');
+        const health = await callService(endpoint, 'GET', '/health');
+        // Any 2xx is not enough: another local service may own a stale port.
+        if (!health || typeof health !== 'object' || health.ok !== true) {
+          throw new Error('CI Hub did not answer its health check. Open the CI Hub panel in OpenChamber and try again.');
+        }
         healthy = true;
       }
       try {
@@ -51,8 +63,16 @@ export default {
               limit: { type: 'number' },
             },
           },
-          execute: (args) =>
-            respond(() => ask('GET', '/agent/runs', { directory: args.directory, repo: args.repo, branch: args.branch, limit: args.limit })),
+          execute: (args, context) =>
+            respond(() =>
+              ask('GET', '/agent/runs', {
+                // No arguments: the project the agent is working in.
+                directory: args.directory ?? context?.directory ?? context?.worktree,
+                repo: args.repo,
+                branch: args.branch,
+                limit: args.limit,
+              }),
+            ),
         },
         ci_run_detail: {
           description:

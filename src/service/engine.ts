@@ -321,6 +321,9 @@ export const createEngine = (deps: EngineDeps) => {
       list.map(async (server) => {
         const account = accountOf(server.provider, server.host);
         const cached = serverRepoCache.get(account);
+        // A rate-limited server is not contacted at all: its last good list
+        // (or null) is the answer until the block lifts.
+        if (blockOf(account)) return { ...server, list: cached?.list ?? null };
         if (cached && now() - cached.at < SERVER_REPOS_TTL_MS) return { ...server, list: cached.list };
         let busy = serverRepoBusy.get(account);
         if (!busy) {
@@ -334,7 +337,17 @@ export const createEngine = (deps: EngineDeps) => {
               }
               evictOldest(forgeUrls);
               return repos;
-            } catch {
+            } catch (err) {
+              // Discovery hits the same limits as polling: record a 429 so
+              // repo detection stops hammering the server too.
+              if (err instanceof ProviderError && (err.kind === 'rate-limit' || err.status === 429)) {
+                rates.set(account, {
+                  remaining: 0,
+                  resetAt: err.rateLimitReset,
+                  blockedUntil: err.rateLimitReset ?? now() + 60_000,
+                  message: err.message,
+                });
+              }
               // Keep the last good list through a failed refresh; a failure
               // with nothing loaded counts as a (negative) cached answer, so
               // every action does not re-try the server within the ttl.
@@ -648,9 +661,11 @@ export const createEngine = (deps: EngineDeps) => {
     return value;
   };
 
-  const pollRepo = async (key: RepoKey): Promise<void> => {
+  /** Polls one repo; true when the cached runs are fresh, false on a provider error. */
+  const pollRepo = async (key: RepoKey): Promise<boolean> => {
     const target = await repoInfo(key);
     const slot = slotFor(target.key);
+    let fresh = true;
     try {
       slot.runs = await call(target, (client) => client.listRuns(target.ref, { perPage: 40 }));
       slot.error = null;
@@ -658,12 +673,14 @@ export const createEngine = (deps: EngineDeps) => {
         slot.defaultBranch = await call(target, (client) => client.defaultBranch(target.ref)).catch(() => null);
       }
     } catch (err) {
+      fresh = false;
       if (!(err instanceof ProviderError && err.kind === 'rate-limit') && !(err instanceof EngineError && err.status === 429)) {
         slot.error = describe(err);
       }
     }
     slot.polledAt = now();
     deps.emit('runs', { repo: target.key, polledAt: slot.polledAt });
+    return fresh;
   };
 
   const busy = (slot: RepoCache): boolean => {
@@ -740,7 +757,7 @@ export const createEngine = (deps: EngineDeps) => {
 
   const refreshMarks = async (): Promise<void> => {
     if (!deps.setMark) return;
-    markSync ??= createMarkSync({ setMark: deps.setMark });
+    markSync ??= createMarkSync({ setMark: deps.setMark, timers, now });
     if (!(await getPrefs()).marks) {
       await markSync.clear();
       return;
@@ -767,14 +784,16 @@ export const createEngine = (deps: EngineDeps) => {
    * frames once per failed run attempt. Never writes to the chat itself.
    */
   const sessionEvent = async (request: GuestSessionEventRequest): Promise<{ ok: true }> => {
-    if (request.event.type !== 'turn-finished') return { ok: true };
+    if (request.event.type !== 'turn-finished' && request.event.type !== 'turn-failed') return { ok: true };
     const directory = request.event.project?.directory ?? null;
     if (!directory) return { ok: true };
     extraDirs.add(directory);
     const found = await repoForDirectory(directory).catch(() => null);
     if (!found) return { ok: true };
-    await pollRepo(found.key).catch(() => undefined);
+    const fresh = await pollRepo(found.key).catch(() => false);
     await refreshMarks().catch(() => undefined);
+    // Never toast a failure that a failed refresh left in the cache.
+    if (!fresh) return { ok: true };
     const run = latestOnBranch(slotFor(found.key).runs, found.branch);
     if (!run || !isFailed(run)) return { ok: true };
     const key = `${run.repo}#${run.id}:${run.attempt}`;
@@ -1341,7 +1360,10 @@ export const createEngine = (deps: EngineDeps) => {
       ? { key: args.repo, branch: null }
       : await repoForDirectory(args.directory ?? null);
     if (!found) return null;
-    await pollRepo(found.key);
+    const fresh = await pollRepo(found.key);
+    if (!fresh) {
+      throw new EngineError(slotFor(found.key).error ?? 'The CI provider is rate-limited right now; no fresh data.', 502);
+    }
     const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
     return agentRunsView(runs, args.limit);
   };

@@ -54,7 +54,8 @@ describe('OpenCode plugin', () => {
   });
 
   test('ci_list_runs returns JSON text with items from /agent/runs', async () => {
-    answer = () => ({ status: 200, body: { items: [{ id: '100', number: 7 }] } });
+    answer = (url) =>
+      url.endsWith('/health') ? { status: 200, body: { ok: true } } : { status: 200, body: { items: [{ id: '100', number: 7 }] } };
     const tool = await tools();
     const result = await tool.ci_list_runs.execute({ repo: 'github:github.com/acme/app', limit: 5 });
     expect(JSON.parse(text(result))).toEqual({ items: [{ id: '100', number: 7 }] });
@@ -91,11 +92,60 @@ describe('OpenCode plugin', () => {
   });
 
   test('ci_failing_log passes the job and reports the cap in its description', async () => {
-    answer = () => ({ status: 200, body: { job: { id: '55' }, excerpt: 'boom', truncated: true } });
+    answer = (url) =>
+      url.endsWith('/health')
+        ? { status: 200, body: { ok: true } }
+        : { status: 200, body: { job: { id: '55' }, excerpt: 'boom', truncated: true } };
     const tool = await tools();
     const result = await tool.ci_failing_log.execute({ repo: 'r', runId: '100', jobId: '55' });
     expect(JSON.parse(text(result))).toMatchObject({ excerpt: 'boom' });
     expect(requests.some((r) => r.url.includes('/agent/log') && r.url.includes('job=55'))).toBe(true);
     expect(tool.ci_failing_log.description).toContain('12');
+  });
+
+  test('ci_list_runs without arguments resolves the execution context directory', async () => {
+    answer = (url) => (url.endsWith('/health') ? { status: 200, body: { ok: true } } : { status: 200, body: { items: [] } });
+    const tool = await tools();
+    await tool.ci_list_runs.execute({}, { directory: '/work/app' });
+    const list = requests.find((r) => r.url.includes('/agent/runs'))!;
+    expect(list.url).toContain('directory=%2Fwork%2Fapp');
+  });
+
+  test('an explicit directory wins over the execution context', async () => {
+    answer = (url) => (url.endsWith('/health') ? { status: 200, body: { ok: true } } : { status: 200, body: { items: [] } });
+    const tool = await tools();
+    await tool.ci_list_runs.execute({ directory: '/elsewhere' }, { directory: '/work/app' });
+    const list = requests.find((r) => r.url.includes('/agent/runs'))!;
+    expect(list.url).toContain('directory=%2Felsewhere');
+  });
+
+  test('a foreign service on the port never counts as healthy', async () => {
+    answer = (url) => (url.endsWith('/health') ? { status: 200, body: 'pong' } : { status: 200, body: { items: [] } });
+    const tool = await tools();
+    const result = await tool.ci_list_runs.execute({ repo: 'x' });
+    expect(text(result)).toContain('CI Hub');
+    expect(requests.some((r) => r.url.includes('/agent/runs'))).toBe(false);
+  });
+
+  test('a health answer of {ok:false} never counts as healthy', async () => {
+    answer = (url) => (url.endsWith('/health') ? { status: 200, body: { ok: false } } : { status: 200, body: { items: [] } });
+    const tool = await tools();
+    const result = await tool.ci_list_runs.execute({ repo: 'x' });
+    expect(text(result)).toContain('CI Hub');
+    expect(requests.some((r) => r.url.includes('/agent/runs'))).toBe(false);
+  });
+
+  test('a changed endpoint file re-validates health before the next call', async () => {
+    answer = () => ({ status: 200, body: { ok: true, items: [] } });
+    const tool = await tools();
+    await tool.ci_list_runs.execute({ repo: 'x' });
+    expect(requests.filter((r) => r.url.endsWith('/health'))).toHaveLength(1);
+    // The service restarted: same port, new process. Health now fails.
+    await writeFile(endpointFile, JSON.stringify({ port: 4321, token: 'tok', pid: 2, startedAt: 2, version: '0.3.0' }));
+    answer = (url) => (url.endsWith('/health') ? { status: 500, body: { message: 'down' } } : { status: 200, body: { items: [] } });
+    const result = await tool.ci_list_runs.execute({ repo: 'x' });
+    expect(text(result)).toContain('CI Hub');
+    expect(requests.filter((r) => r.url.endsWith('/health'))).toHaveLength(2);
+    expect(requests.filter((r) => r.url.includes('/agent/runs'))).toHaveLength(1);
   });
 });

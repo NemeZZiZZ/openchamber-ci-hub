@@ -4,17 +4,25 @@ export interface CiToolResult {
   content: { type: string; text: string }[];
 }
 
+export interface CiToolContext {
+  directory?: string;
+  worktree?: string;
+}
+
 export interface CiTool {
   description: string;
   input: { type: string; [key: string]: unknown };
-  execute(args: {
-    directory?: string;
-    repo?: string;
-    branch?: string;
-    limit?: number;
-    runId?: string;
-    jobId?: string;
-  }): Promise<CiToolResult>;
+  execute(
+    args: {
+      directory?: string;
+      repo?: string;
+      branch?: string;
+      limit?: number;
+      runId?: string;
+      jobId?: string;
+    },
+    context?: CiToolContext,
+  ): Promise<CiToolResult>;
 }
 
 export interface CiHubPlugin {

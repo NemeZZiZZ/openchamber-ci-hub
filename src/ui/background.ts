@@ -10,7 +10,7 @@ import { createSvc, errorText } from './port.ts';
 
 export interface AgentRun {
   repo: string;
-  id: number;
+  id: string;
   number: number;
   workflow: string;
   branch: string | null;
@@ -61,11 +61,11 @@ export const startBackground = (host: HostClient, ctx: HostReadyContext): void =
   const svc = createSvc(host);
 
   const latest = async (directory: string | null): Promise<AgentRun[]> => {
-    const res = await svc<{ runs: AgentRun[] }>({
+    const res = await svc<{ items: AgentRun[] }>({
       path: '/agent/runs',
       query: { directory, limit: '10' },
     });
-    return res.runs;
+    return res.items;
   };
 
   host.onResolve(async (request) => {

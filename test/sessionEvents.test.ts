@@ -42,6 +42,7 @@ const setup = (conclusion: string | null = 'failure', withRemote = true) => {
   const events: { topic: string; data?: unknown }[] = [];
   const marks: { target: ServiceMarkTarget; mark: ServiceMark | null }[] = [];
   const requests: string[] = [];
+  const control = { failRuns: false };
   const engine = createEngine({
     config: createMemoryConfigStore(),
     prefs: createMemoryPrefsStore(),
@@ -49,9 +50,11 @@ const setup = (conclusion: string | null = 'failure', withRemote = true) => {
     auth: { readStore: async () => undefined, readSettings: async () => ({}), cliToken: async () => 't' },
     fetch: async (url) => {
       requests.push(new URL(url).pathname);
-      return url.includes('/actions/runs')
-        ? Response.json({ workflow_runs: [rawRun(conclusion)] })
-        : Response.json({ default_branch: 'main' });
+      if (url.includes('/actions/runs')) {
+        if (control.failRuns) return new Response('{}', { status: 500 });
+        return Response.json({ workflow_runs: [rawRun(conclusion)] });
+      }
+      return Response.json({ default_branch: 'main' });
     },
     git: async (args) => {
       if (!withRemote) return { code: 1, stdout: '', stderr: '' };
@@ -69,7 +72,7 @@ const setup = (conclusion: string | null = 'failure', withRemote = true) => {
     timers: { set: () => 0, clear: () => undefined },
   });
   const turnCi = () => events.filter((event) => event.topic === 'turn-ci');
-  return { engine, events, marks, requests, turnCi };
+  return { engine, events, marks, requests, turnCi, control };
 };
 
 describe('session events', () => {
@@ -96,6 +99,17 @@ describe('session events', () => {
     expect(turnCi()).toHaveLength(1);
   });
 
+  test('turn-failed is handled like turn-finished', async () => {
+    const { engine, turnCi } = setup();
+    const request = turnFinished('/p/app');
+    const failed = {
+      ...request,
+      event: { ...request.event, type: 'turn-failed' as const },
+    };
+    expect(await engine.sessionEvent(failed)).toEqual({ ok: true });
+    expect(turnCi()).toHaveLength(1);
+  });
+
   test('an unwatched directory answers ok without polling or emitting', async () => {
     const { engine, requests, turnCi } = setup('failure', false);
     expect(await engine.sessionEvent(turnFinished('/elsewhere'))).toEqual({ ok: true });
@@ -108,6 +122,20 @@ describe('session events', () => {
     const { engine, turnCi } = setup('success');
     await engine.sessionEvent(turnFinished('/p/app'));
     expect(turnCi()).toHaveLength(0);
+  });
+
+  test('a failed refresh never toasts a stale failure', async () => {
+    const { engine, turnCi, control } = setup();
+    await engine.agentRuns({ repo: KEY }); // seed the cache without a turn event
+    control.failRuns = true;
+    await engine.sessionEvent(turnFinished('/p/app'));
+    expect(turnCi()).toHaveLength(0);
+  });
+
+  test('agentRuns surfaces a provider error instead of a stale or empty list', async () => {
+    const { engine, control } = setup();
+    control.failRuns = true;
+    await expect(engine.agentRuns({ repo: KEY })).rejects.toThrow();
   });
 
   test('toastOnTurnFailure:false emits nothing but still refreshes marks', async () => {

@@ -99,7 +99,8 @@
       ],
       "sessionEvents": {
         "events": [
-          "turn-finished"
+          "turn-finished",
+          "turn-failed"
         ]
       },
       "instructions": true,

@@ -96,6 +96,61 @@ describe('createMarkSync', () => {
     await sync.sync(rows);
     expect(calls).toHaveLength(60);
   });
+
+  const retryWith = (maxPerMinute: number, failFirst = 0) => {
+    let now = 1_000_000;
+    const pending: (() => void)[] = [];
+    const calls: { target: ServiceMarkTarget; mark: ServiceMark | null }[] = [];
+    let failures = failFirst;
+    const sync = createMarkSync({
+      setMark: async (target, mark) => {
+        if (failures > 0) {
+          failures--;
+          throw new Error('host rejected');
+        }
+        calls.push({ target, mark });
+      },
+      maxPerMinute,
+      now: () => now,
+      timers: { set: (fn) => pending.push(fn), clear: () => undefined },
+    });
+    const drain = async () => {
+      let guard = 0;
+      while (pending.length && guard++ < 20) {
+        now += 61_000; // a new budget window per retry
+        pending.shift()!();
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    };
+    return { calls, sync, drain, pending };
+  };
+
+  test('a clear larger than the budget finishes on retries without another poll', async () => {
+    const { calls, sync, drain, pending } = retryWith(2);
+    const rows = Array.from({ length: 3 }, (_, i) => ({ directory: `/p/${i}`, branch: 'main', runs: [failedRun] }));
+    await sync.sync(rows);
+    await drain(); // budget allows 2 marks per window; the third lands on retry
+    expect(calls.filter((c) => c.mark !== null)).toHaveLength(3);
+    await sync.clear();
+    expect(calls.filter((c) => c.mark === null)).toHaveLength(1); // the retry used one write of this window
+    expect(pending.length).toBeGreaterThan(0); // the third clear is scheduled, not dropped
+    await drain();
+    expect(calls.filter((c) => c.mark === null)).toHaveLength(3);
+    // Nothing left: another clear writes nothing.
+    await sync.clear();
+    expect(calls.filter((c) => c.mark === null)).toHaveLength(3);
+  });
+
+  test('a failed host write is retried, not forgotten', async () => {
+    const { calls, sync, drain } = retryWith(60, 1);
+    const rows = [{ directory: '/a', branch: 'main', runs: [failedRun] }];
+    await sync.sync(rows); // first write fails
+    expect(calls).toHaveLength(0);
+    await drain();
+    expect(calls).toHaveLength(1); // the retry set the mark
+    await sync.sync([]); // and it is still tracked, so it can be cleared
+    expect(calls[1]?.mark).toBeNull();
+  });
 });
 
 describe('engine marks', () => {
