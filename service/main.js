@@ -3742,6 +3742,35 @@ var createMarkSync = (deps) => {
   };
 };
 
+// src/service/agentView.ts
+var AGENT_RUNS_MAX = 20;
+var AGENT_LOG_MAX = 12000;
+var agentRunView = (run) => ({
+  repo: run.repo,
+  id: run.id,
+  number: run.number,
+  workflow: run.workflow,
+  branch: run.branch,
+  sha: run.sha,
+  status: run.status,
+  conclusion: run.conclusion,
+  attempt: run.attempt,
+  url: run.url,
+  durationMs: run.startedAt !== null && run.finishedAt !== null ? run.finishedAt - run.startedAt : null,
+  finishedAt: run.finishedAt
+});
+var agentRunsView = (runs, limit = 10) => {
+  const cap = Math.max(0, Math.min(Number.isFinite(limit) ? Math.trunc(limit) : 10, AGENT_RUNS_MAX));
+  return { items: [...runs].sort((a, b) => b.createdAt - a.createdAt).slice(0, cap).map(agentRunView) };
+};
+var agentJobsView = (jobs) => jobs.map((job) => ({
+  id: job.id,
+  name: job.name,
+  status: job.status,
+  conclusion: job.conclusion,
+  failingStep: failingStep(job)?.name ?? null
+}));
+
 // src/service/engine.ts
 class EngineError extends Error {
   status;
@@ -4839,6 +4868,34 @@ var createEngine = (deps) => {
     });
     return { ...next };
   };
+  const agentRuns = async (args) => {
+    const found = args.repo ? { key: args.repo, branch: null } : await repoForDirectory(args.directory ?? null);
+    if (!found)
+      return null;
+    await pollRepo(found.key);
+    const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
+    return agentRunsView(runs, args.limit);
+  };
+  const agentRun = async (repo, runId) => {
+    const { run, jobs } = await runDetail(repo, runId);
+    return { ...agentRunView(run), jobs: agentJobsView(jobs) };
+  };
+  const agentLog = async (repo, runId, jobId) => {
+    const target = await repoInfo(repo);
+    const { jobs } = await runDetail(repo, runId);
+    const job = jobId ? jobs.find((entry) => entry.id === jobId) : failedJobs(jobs)[0] ?? jobs[0];
+    if (!job)
+      throw new EngineError(jobId ? "No such job in this run." : "This run has no jobs.", 404);
+    const window2 = await log(repo, job.id, true);
+    const excerpt = errorExcerpt(window2.text, { maxBytes: AGENT_LOG_MAX, maxLines: 400 }, target.provider.logDialect);
+    const joined = excerpt.lines.join(`
+`);
+    return {
+      job: { id: job.id, name: job.name },
+      excerpt: joined.slice(0, AGENT_LOG_MAX),
+      truncated: window2.truncated || excerpt.truncated || joined.length > AGENT_LOG_MAX
+    };
+  };
   const stop = () => {
     if (loop)
       timers.clear(loop);
@@ -4850,6 +4907,9 @@ var createEngine = (deps) => {
     },
     getPrefs,
     setPrefs,
+    agentRuns,
+    agentRun,
+    agentLog,
     refreshMarks,
     extraDirs,
     sessionEvent,
@@ -4911,6 +4971,21 @@ var removeEndpoint = async (home, pid) => {
   }
   await rm(path, { force: true });
 };
+
+// src/service/instructions.ts
+var INSTRUCTIONS = `CI Hub watches this machine's CI runs across the configured providers.
+
+When the user asks about CI, pipelines, workflows, a failing run or a deploy, use the CI Hub tools instead of shelling out to a provider CLI:
+- ci_list_runs: recent runs for the current project (or an explicit repo), optionally one branch.
+- ci_run_detail: one run with its jobs and each failing step.
+- ci_failing_log: the error excerpt of the failed job (or a chosen job).
+- ci_rerun: re-run a run, or only its failed jobs, and report whether the retry started.
+
+Repository keys look like "github:host/owner/name" (the provider prefix changes with the provider). Prefer ci_list_runs with no repo argument: it resolves the current project itself. Run ids come from tool answers only — never invent a run id, and never guess one from a URL slug.
+
+To fix a failure: ci_list_runs → ci_run_detail → ci_failing_log, then change the code, then ci_rerun. Report what the log actually showed; do not speculate about causes the log does not contain.
+
+When you report a finished run, render it with the CiRun block: CiRun("repo", "runId") on its own line, using the exact repo key and run id from the tool answer. The block draws the live status, the failed jobs and the actions.`;
 
 // src/service/routes.ts
 var ok = (body) => ({ status: 200, body });
@@ -5017,6 +5092,25 @@ var handleRequest = async (request, engine) => {
       }
       if (method === "DELETE")
         return ok({ repos: await engine.removeRepo(required(str(body.repo) || q("repo"), "repo")) });
+    }
+    if (method === "GET" && path === "/agent/runs") {
+      const rawLimit = q("limit");
+      const view = await engine.agentRuns({
+        directory: q("directory") || undefined,
+        repo: q("repo") || undefined,
+        branch: q("branch") || undefined,
+        limit: rawLimit ? Number(rawLimit) : undefined
+      });
+      if (!view) {
+        return fail(400, "No CI repository for these arguments. Pass repo=provider:host/owner/name or a directory inside a watched repository.");
+      }
+      return ok(view);
+    }
+    if (method === "GET" && path === "/agent/run") {
+      return ok(await engine.agentRun(required(q("repo"), "repo"), required(q("id"), "id")));
+    }
+    if (method === "GET" && path === "/agent/log") {
+      return ok(await engine.agentLog(required(q("repo"), "repo"), required(q("id"), "id"), q("job") || undefined));
     }
     if (method === "GET" && path === "/run") {
       return ok(await engine.runDetail(required(q("repo"), "repo"), required(q("id"), "id")));
@@ -5164,6 +5258,9 @@ server.on("error", (err) => {
 server.listen(port, "127.0.0.1", () => {
   console.log(`[ci-hub] listening on 127.0.0.1:${port}`);
   engine.start();
+  host?.setInstructions(null, INSTRUCTIONS).catch(() => {
+    return;
+  });
   readFile4(new URL("../package.json", import.meta.url), "utf8").then((raw) => JSON.parse(raw).version ?? "0.0.0").catch(() => "0.0.0").then((version) => writeEndpoint(home, { port, token, pid: process.pid, startedAt: Date.now(), version })).catch((err) => console.warn("[ci-hub] could not write the endpoint file:", err.message));
 });
 var shutdown = () => {

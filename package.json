@@ -8,6 +8,7 @@
     "panel/block.html",
     "panel/block.js",
     "plugin",
+    "skills",
     "service/main.js",
     "README.md",
     "LICENSE"
@@ -99,6 +100,8 @@
           "turn-finished"
         ]
       },
+      "instructions": true,
+      "skills": "skills",
       "panel": {
         "id": "ci-hub",
         "name": "CI Hub",
