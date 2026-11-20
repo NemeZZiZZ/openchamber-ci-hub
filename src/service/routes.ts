@@ -60,6 +60,9 @@ export const handleRequest = async (request: RouteRequest, engine: Engine): Prom
   try {
     if (method === 'GET' && path === '/health') return ok({ ok: true, ...engine.debug() });
 
+    if (method === 'GET' && path === '/prefs') return ok(await engine.getPrefs());
+    if (method === 'PUT' && path === '/prefs') return ok(await engine.setPrefs(readJson(request.body)));
+
     if (path === WAITS_START_PATH && method === 'POST') {
       const parsed = readWaitStartRequest(request.body);
       if (!parsed) return fail(400, 'Malformed wait request.');

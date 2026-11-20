@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { createMemoryConfigStore } from '../src/service/configStore.ts';
 import { createEngine } from '../src/service/engine.ts';
+import { createMemoryPrefsStore } from '../src/service/prefs.ts';
 import { handleRequest } from '../src/service/routes.ts';
 
 const engineWith = (status: number) =>
   createEngine({
     config: createMemoryConfigStore(),
+    prefs: createMemoryPrefsStore(),
     audit: async () => undefined,
     auth: { readStore: async () => undefined, readSettings: async () => ({}), cliToken: async () => 't' },
     fetch: async () => (status === 200 ? Response.json({ workflow_runs: [] }) : new Response('{}', { status })),

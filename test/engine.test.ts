@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createEngine, EngineError, type AccountView, type EngineDeps } from '../src/service/engine.ts';
 import { createMemoryConfigStore } from '../src/service/configStore.ts';
+import { createMemoryPrefsStore } from '../src/service/prefs.ts';
 
 const KEY = 'github:github.com/acme/app';
 const LIB = 'github:github.com/acme/lib';
@@ -49,6 +50,7 @@ const setup = (
   let now = Date.parse('2026-11-14T12:00:00Z');
   const deps: EngineDeps = {
     config: createMemoryConfigStore(),
+    prefs: createMemoryPrefsStore(),
     now: () => now,
     audit: async (entry) => void audit.push(entry),
     auth: {
@@ -193,6 +195,7 @@ describe('engine', () => {
     const timers: { fn: () => void; ms: number }[] = [];
     const requests: string[] = [];
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({
         version: 2,
         repos: [
@@ -322,6 +325,7 @@ describe('engine', () => {
     let now = Date.parse('2026-11-14T12:00:00Z');
     const polled: string[] = [];
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({
         version: 2,
         repos: [
@@ -386,6 +390,7 @@ describe('engine', () => {
     const requests: string[] = [];
     const configNotes: (string | null)[] = [];
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({ version: 2, repos: [{ key: GHE, enabled: true, addedAt: 0 }], directoryMap: {} }),
       audit: async () => undefined,
       auth: {
@@ -473,6 +478,7 @@ describe('engine with gitlab', () => {
       },
     });
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({ version: 2, repos: configRepos, directoryMap: {} }),
       audit: async () => undefined,
       auth: { readStore: async () => store, readSettings: async () => ({}), cliToken: async () => 'gh-token' },
@@ -615,6 +621,7 @@ describe('engine with gitea and forgejo', () => {
       },
     });
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({
         version: 2,
         repos: [
@@ -976,6 +983,7 @@ describe('mentions', () => {
   type GhState = { runs: Record<string, unknown>[]; jobs: { id: number; name: string; status: string; conclusion: string | null }[]; log: string };
   const mentionsEngine = (state: GhState) =>
     createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({ version: 2, repos: [{ key: KEY, enabled: true, addedAt: 0 }], directoryMap: {} }),
       audit: async () => undefined,
       auth: { readStore: async () => undefined, readSettings: async () => ({}), cliToken: async () => 't' },
@@ -1079,6 +1087,7 @@ describe('mentions', () => {
     );
     const newest = rawRun({ id: 50, run_number: 50, head_branch: 'main', created_at: '2026-11-14T11:00:00Z' });
     const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
       config: createMemoryConfigStore({
         version: 2,
         repos: [

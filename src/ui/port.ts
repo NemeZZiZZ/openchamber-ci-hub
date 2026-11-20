@@ -17,7 +17,7 @@ export class ServiceError extends Error {
 }
 
 export interface Call {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   path: string;
   query?: Record<string, string | undefined | null>;
   body?: unknown;

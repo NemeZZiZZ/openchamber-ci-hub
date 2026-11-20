@@ -31,6 +31,7 @@ import { knownInstances, resolveToken, serverOf, sourceLabel, type AuthDeps } fr
 
 import type { ServerRepo } from '../providers/types.ts';
 import type { AuditEntry, ConfigStore } from './configStore.ts';
+import type { Prefs, PrefsStore } from './prefs.ts';
 import type { GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue } from '@openchamber/sdk';
 
 export interface ExecResult {
@@ -41,6 +42,7 @@ export interface ExecResult {
 
 export interface EngineDeps {
   config: ConfigStore;
+  prefs: PrefsStore;
   audit: (entry: AuditEntry) => Promise<void>;
   auth: AuthDeps;
   fetch: FetchLike;
@@ -1229,12 +1231,28 @@ export const createEngine = (deps: EngineDeps) => {
     return results;
   };
 
+  let prefsCache: Prefs | null = null;
+  const getPrefs = async (): Promise<Prefs> => {
+    if (!prefsCache) prefsCache = await deps.prefs.load();
+    return { ...prefsCache };
+  };
+  const setPrefs = async (patch: Partial<Prefs>): Promise<Prefs> => {
+    const next = await getPrefs();
+    if (typeof patch.marks === 'boolean') next.marks = patch.marks;
+    if (typeof patch.toastOnTurnFailure === 'boolean') next.toastOnTurnFailure = patch.toastOnTurnFailure;
+    await deps.prefs.save(next);
+    prefsCache = next;
+    return { ...next };
+  };
+
   const stop = () => {
     if (loop) timers.clear(loop);
     loop = null;
   };
 
   return {
+    getPrefs,
+    setPrefs,
     state,
     overview,
     workflowRuns,

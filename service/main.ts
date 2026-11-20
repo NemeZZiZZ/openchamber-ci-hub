@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createServiceHost } from '@openchamber/sdk';
 import { createFileAudit, createFileConfigStore } from '../src/service/configStore.ts';
+import { createFilePrefsStore } from '../src/service/prefs.ts';
 import { createEngine, type ExecResult } from '../src/service/engine.ts';
 import { handleRequest } from '../src/service/routes.ts';
 
@@ -67,6 +68,7 @@ const readStore = async (): Promise<string | undefined> => {
 
 const engine = createEngine({
   config: createFileConfigStore(dataDir),
+  prefs: createFilePrefsStore(dataDir),
   audit: createFileAudit(dataDir),
   auth: {
     readStore,
