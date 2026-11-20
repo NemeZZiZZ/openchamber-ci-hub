@@ -320,10 +320,19 @@ so that each stage leaves the extension usable:
   rows, a real `CiRun` block, plugin loading in OpenCode, tool cards in chat,
   slash command resolution through the background frame.
 
-## Left to the builder
+## Left to the builder — outcomes (0.3.0)
 
-- Whether the plugin entry may dynamically import `node:fs/promises` / `node:os`
-  (the docs forbid package imports; builtins are expected to work — verify first).
-- Whether `contributes.tools` cards read JSON carried in a tool's text `content`.
-- Exact `skills` folder layout the host expects.
-- The chip `providerId` value `onResolve` should return for this extension.
+- **Dynamic builtin imports in the plugin:** work. `plugin/index.js` loads
+  `node:fs/promises` and `node:os` dynamically; a plain-node smoke run of the
+  built package resolved the endpoint and called `/health`. The in-host load is
+  still covered only by the manual pass.
+- **Cards from JSON text content:** the manifest passes `openchamber-guest-check`
+  with `output: "card"` templates over `{output.*}`. Live rendering against a real
+  tool call remains a manual-pass item; if it fails, fall back to `output: "json"`.
+- **Skills layout:** `<folder>/<name>/SKILL.md` with `name`/`description`
+  frontmatter, confirmed in `DOCUMENTATION.md`; shipped as `skills/ci-hub/SKILL.md`.
+- **Chip `providerId`:** the extension's own id (`ci-hub`), per `ResolveRequest` →
+  `AttachIssueRequest` in the SDK contract.
+
+Still manual-only: marks/toast in a live session, block rendering and answers,
+Small-Model summary, slash commands, mobile widths.

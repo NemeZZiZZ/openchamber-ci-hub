@@ -15,8 +15,11 @@ One console for **all** your CI, inside OpenChamber. CI Hub watches the pipeline
 - **Agent handoff** — send a failure to an agent with the repo, run URL and the log excerpt attached; the `ci-hub/run-finished` wait lets an agent block on a run and wake with a verdict.
 - **Flaky & trend signals** — a failed run whose same commit passed is marked `flaky · passed in #41`; each workflow row carries a duration sparkline of its last 20 runs.
 - **Tokens stay home** — credentials live in the service process only, each token goes to its own host, pages never poll, and no CI write happens without a click.
+- **CI where you already look** — sidebar marks on session and worktree rows (`CI failed · CI #7`), a `CiRun` live card the agent can drop into a reply, and `/ci-status` + `/ci-fix` slash commands.
+- **Agent-native** — the bundled OpenCode plugin gives every agent `ci_list_runs`, `ci_run_detail`, `ci_failing_log` and `ci_rerun`; tool calls render as status cards, and a CI triage skill plus global instructions teach the flow.
+- **"Why it failed"** — a one-click Small-Model summary of the failing log, cached per run attempt.
 
-Requires OpenChamber 2.7.1 or newer (desktop or web; extensions do not load in VS Code or on mobile).
+Requires OpenChamber 2.7.1 or newer (desktop or web; the panel, page, blocks, marks and commands also work on mobile — the VS Code extension does not load guest frames).
 
 ## Supported CI providers
 
@@ -52,6 +55,18 @@ bun run check
 - **Work Status section "CI"** — building/failed counts and the newest failure with a one-click re-run.
 - **`@CI Hub runs` mentions** — run search for the composer; the resolved chip carries the log tail to the agent.
 - **Wait `ci-hub/run-finished`** — agents block on a run (`repo`, `runId`, optional `conclusion`) and wake once with a report.
+- **Sidebar marks** — the branch's latest run marks its session/worktree row: red `CI failed · <workflow> #<n>`, blue while running. Click opens the panel. Kept fresh by 60-second idle polling, even with no frame open.
+- **`CiRun` block** — the agent writes `CiRun("repo", "runId")` and the chat shows a live card: status, failed jobs, the failing log, Re-run failed, and Fix with the agent (a handoff answer, capped at the block-answer limit).
+- **Slash commands** — `/ci-status` attaches the folder's latest run as a chip; `/ci-fix` attaches the latest failing run with instructions to use the CI tools. The **Check CI** session action toasts the folder's CI state.
+- **Agent tools** — `ci_list_runs`, `ci_run_detail`, `ci_failing_log`, `ci_rerun` from the bundled OpenCode plugin, talking to the service over its local endpoint file (`~/.openchamber-ci-hub/endpoint.json`, 0600). Calls render as cards in the chat.
+- **Mobile** — the panel and the full-screen page are opted in for the phone.
+
+## Preferences
+
+The panel bar's ⚙ opens two switches, stored by the service (`prefs.json`), shared by every frame:
+
+- **Sidebar marks** — off clears every mark and stops idle polling (nothing polls while no surface is open).
+- **Toast when CI fails after a turn** — when an agent's turn ends and its folder's branch has a failed run, an open CI Hub frame shows a toast. Marks refresh either way.
 
 ## Account
 
