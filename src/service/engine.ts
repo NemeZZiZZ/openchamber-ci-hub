@@ -4,7 +4,7 @@
 // tests drive it with fakes.
 
 import { formatDuration, isActive, isFailed, parseRemote, remoteIdentity, runDuration } from '../domain/format.ts';
-import { buildHandoff, focusJob } from '../domain/handoff.ts';
+import { buildHandoff, failedJobs, focusJob } from '../domain/handoff.ts';
 import { errorExcerpt } from '../domain/log.ts';
 import { formatRepoKey, legacyRepoKey, parseRepoKey, repoKeyId, repoName, type RepoKey, type RepoRef } from '../domain/repoKey.ts';
 import { buildStatusView, readStatusActionId, type RepoSnapshot } from '../domain/statusView.ts';
@@ -33,6 +33,7 @@ import type { ServerRepo } from '../providers/types.ts';
 import type { AuditEntry, ConfigStore } from './configStore.ts';
 import { createMarkSync, latestOnBranch } from './marks.ts';
 import type { Prefs, PrefsStore } from './prefs.ts';
+import { agentJobsView, agentRunsView, agentRunView, AGENT_LOG_MAX } from './agentView.ts';
 import type { GuestSessionEventRequest, GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue, ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
 
 export interface ExecResult {
@@ -1327,6 +1328,44 @@ export const createEngine = (deps: EngineDeps) => {
     return { ...next };
   };
 
+  // ---- agent-facing views (OpenCode plugin, slash commands) -----------------
+  // Compact and capped: an agent's context should never pay for a full log.
+
+  const agentRuns = async (args: {
+    directory?: string | undefined;
+    repo?: string | undefined;
+    branch?: string | undefined;
+    limit?: number | undefined;
+  }) => {
+    const found = args.repo
+      ? { key: args.repo, branch: null }
+      : await repoForDirectory(args.directory ?? null);
+    if (!found) return null;
+    await pollRepo(found.key);
+    const runs = slotFor(found.key).runs.filter((run) => !args.branch || run.branch === args.branch);
+    return agentRunsView(runs, args.limit);
+  };
+
+  const agentRun = async (repo: RepoKey, runId: string) => {
+    const { run, jobs } = await runDetail(repo, runId);
+    return { ...agentRunView(run), jobs: agentJobsView(jobs) };
+  };
+
+  const agentLog = async (repo: RepoKey, runId: string, jobId?: string | undefined) => {
+    const target = await repoInfo(repo);
+    const { jobs } = await runDetail(repo, runId);
+    const job = jobId ? jobs.find((entry) => entry.id === jobId) : (failedJobs(jobs)[0] ?? jobs[0]);
+    if (!job) throw new EngineError(jobId ? 'No such job in this run.' : 'This run has no jobs.', 404);
+    const window = await log(repo, job.id, true);
+    const excerpt = errorExcerpt(window.text, { maxBytes: AGENT_LOG_MAX, maxLines: 400 }, target.provider.logDialect);
+    const joined = excerpt.lines.join('\n');
+    return {
+      job: { id: job.id, name: job.name },
+      excerpt: joined.slice(0, AGENT_LOG_MAX),
+      truncated: window.truncated || excerpt.truncated || joined.length > AGENT_LOG_MAX,
+    };
+  };
+
   const stop = () => {
     if (loop) timers.clear(loop);
     loop = null;
@@ -1338,6 +1377,9 @@ export const createEngine = (deps: EngineDeps) => {
     },
     getPrefs,
     setPrefs,
+    agentRuns,
+    agentRun,
+    agentLog,
     refreshMarks,
     extraDirs,
     sessionEvent,

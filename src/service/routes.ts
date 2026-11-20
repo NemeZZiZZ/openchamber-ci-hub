@@ -133,6 +133,28 @@ export const handleRequest = async (request: RouteRequest, engine: Engine): Prom
       if (method === 'DELETE') return ok({ repos: await engine.removeRepo(required(str(body.repo) || q('repo'), 'repo')) });
     }
 
+    if (method === 'GET' && path === '/agent/runs') {
+      const rawLimit = q('limit');
+      const view = await engine.agentRuns({
+        directory: q('directory') || undefined,
+        repo: q('repo') || undefined,
+        branch: q('branch') || undefined,
+        limit: rawLimit ? Number(rawLimit) : undefined,
+      });
+      if (!view) {
+        return fail(400, 'No CI repository for these arguments. Pass repo=provider:host/owner/name or a directory inside a watched repository.');
+      }
+      return ok(view);
+    }
+
+    if (method === 'GET' && path === '/agent/run') {
+      return ok(await engine.agentRun(required(q('repo'), 'repo'), required(q('id'), 'id')));
+    }
+
+    if (method === 'GET' && path === '/agent/log') {
+      return ok(await engine.agentLog(required(q('repo'), 'repo'), required(q('id'), 'id'), q('job') || undefined));
+    }
+
     if (method === 'GET' && path === '/run') {
       return ok(await engine.runDetail(required(q('repo'), 'repo'), required(q('id'), 'id')));
     }
