@@ -5,6 +5,8 @@
     "panel/index.html",
     "panel/main.js",
     "panel/page.html",
+    "panel/block.html",
+    "panel/block.js",
     "service/main.js",
     "README.md",
     "LICENSE"
@@ -46,6 +48,15 @@
       "mentions": {
         "label": "CI Hub runs"
       },
+      "blocks": [
+        {
+          "name": "CiRun",
+          "description": "Show one CI run: status, jobs, failing log, re-run and hand-off.",
+          "args": ["repo", "runId"],
+          "entry": "panel/block.html",
+          "answers": true
+        }
+      ],
       "statusSection": {
         "source": {
           "path": "/status",
@@ -147,7 +158,7 @@
     }
   },
   "scripts": {
-    "build": "bunx openchamber-guest-bundle panel/main.ts panel/main.js && bunx openchamber-guest-bundle --node service/main.ts service/main.js",
+    "build": "bunx openchamber-guest-bundle panel/main.ts panel/main.js && bunx openchamber-guest-bundle panel/block.ts panel/block.js && bunx openchamber-guest-bundle --node service/main.ts service/main.js",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
     "check": "bun run typecheck && bun test && bun run build && bunx openchamber-guest-check"
