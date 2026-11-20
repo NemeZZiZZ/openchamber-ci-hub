@@ -26,6 +26,11 @@
         "sessions"
       ],
       "marks": true,
+      "sessionEvents": {
+        "events": [
+          "turn-finished"
+        ]
+      },
       "panel": {
         "id": "ci-hub",
         "name": "CI Hub",

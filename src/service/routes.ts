@@ -2,7 +2,7 @@
 // the app through the status section and waits. Every handler answers JSON;
 // a provider problem becomes a message the panel can show, never a bare 500.
 
-import { readWaitCheckRequest, readWaitStartRequest, MENTIONS_RESOLVE_PATH, MENTIONS_SEARCH_PATH, WAITS_CHECK_PATH, WAITS_START_PATH } from '@openchamber/sdk';
+import { readSessionEventRequest, readWaitCheckRequest, readWaitStartRequest, MENTIONS_RESOLVE_PATH, MENTIONS_SEARCH_PATH, SESSION_EVENTS_PATH, WAITS_CHECK_PATH, WAITS_START_PATH } from '@openchamber/sdk';
 import { ProviderError } from '../providers/errors.ts';
 import { EngineError, type Engine } from './engine.ts';
 
@@ -62,6 +62,12 @@ export const handleRequest = async (request: RouteRequest, engine: Engine): Prom
 
     if (method === 'GET' && path === '/prefs') return ok(await engine.getPrefs());
     if (method === 'PUT' && path === '/prefs') return ok(await engine.setPrefs(readJson(request.body)));
+
+    if (method === 'POST' && path === SESSION_EVENTS_PATH) {
+      const parsed = readSessionEventRequest(request.body);
+      if (!parsed) return fail(400, 'Malformed session event.');
+      return ok(await engine.sessionEvent(parsed));
+    }
 
     if (path === WAITS_START_PATH && method === 'POST') {
       const parsed = readWaitStartRequest(request.body);

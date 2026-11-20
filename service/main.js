@@ -78,8 +78,80 @@ var GUEST_SESSION_EVENT_TYPES = [
   "session-archived",
   "session-deleted"
 ];
+var SESSION_EVENTS_PATH = "/session-events";
+var SESSION_EVENTS_WIRE_VERSION = 1;
 var SESSION_EVENTS_IDLE_MS = 10 * 60000;
 var EVENT_TYPES = new Set(GUEST_SESSION_EVENT_TYPES);
+var isGuestSessionEventType = (value) => EVENT_TYPES.has(value);
+var readSessionEventRequest = (body) => {
+  let wire;
+  try {
+    const parsed = JSON.parse(body);
+    if (Object(parsed) !== parsed || parsed === null)
+      return null;
+    wire = parsed;
+  } catch {
+    return null;
+  }
+  const { v, requestId, event, content } = wire;
+  if (v !== SESSION_EVENTS_WIRE_VERSION)
+    return null;
+  if (String(requestId) !== requestId || requestId.length === 0)
+    return null;
+  if (Object(event) !== event || event === undefined)
+    return null;
+  const { id, type, at, session, project, linked, permission, question } = event;
+  if (String(id) !== id || id.length === 0)
+    return null;
+  if (String(type) !== type || !isGuestSessionEventType(type))
+    return null;
+  if (!Number.isFinite(at))
+    return null;
+  if (Object(session) !== session || session === undefined)
+    return null;
+  const sessionId = session.id;
+  if (String(sessionId) !== sessionId || sessionId.length === 0)
+    return null;
+  const parentId = session.parentId;
+  if (parentId !== null && (String(parentId) !== parentId || parentId.length === 0))
+    return null;
+  if (Object(project) !== project || project === undefined)
+    return null;
+  const directory = project.directory;
+  if (directory !== null && (String(directory) !== directory || directory.length === 0))
+    return null;
+  if (!Array.isArray(linked))
+    return null;
+  const request = {
+    v: SESSION_EVENTS_WIRE_VERSION,
+    requestId,
+    event: { id, type, at: Number(at), session: { id: sessionId, parentId }, project: { directory }, linked }
+  };
+  if (permission !== undefined) {
+    if (Object(permission) !== permission)
+      return null;
+    const permissionRequestId = permission.requestId;
+    if (String(permissionRequestId) !== permissionRequestId || permissionRequestId.length === 0)
+      return null;
+    request.event.permission = { requestId: permissionRequestId };
+  }
+  if (question !== undefined) {
+    if (Object(question) !== question)
+      return null;
+    const { kind, id: questionId } = question;
+    if (kind !== "form" && kind !== "page")
+      return null;
+    if (String(questionId) !== questionId || questionId.length === 0)
+      return null;
+    request.event.question = { kind, id: questionId };
+  }
+  if (content !== undefined) {
+    if (Object(content) !== content || content.type !== type)
+      return null;
+    request.content = content;
+  }
+  return request;
+};
 // node_modules/@openchamber/sdk/dist/service-host.js
 var SERVICE_HOST_PATH = "/service/call";
 var OPENCHAMBER_HOST_CALLBACK_URL_ENV = "OPENCHAMBER_HOST_CALLBACK_URL";
@@ -4237,6 +4309,44 @@ var createEngine = (deps) => {
     }
     await markSync.sync(rows);
   };
+  const notifiedTurns = new Set;
+  const sessionEvent = async (request) => {
+    if (request.event.type !== "turn-finished")
+      return { ok: true };
+    const directory = request.event.project?.directory ?? null;
+    if (!directory)
+      return { ok: true };
+    extraDirs.add(directory);
+    const found = await repoForDirectory(directory).catch(() => null);
+    if (!found)
+      return { ok: true };
+    await pollRepo(found.key).catch(() => {
+      return;
+    });
+    await refreshMarks().catch(() => {
+      return;
+    });
+    const run = latestOnBranch(slotFor(found.key).runs, found.branch);
+    if (!run || !isFailed(run))
+      return { ok: true };
+    const key = `${run.repo}#${run.id}:${run.attempt}`;
+    if (notifiedTurns.has(key))
+      return { ok: true };
+    notifiedTurns.add(key);
+    if ((await getPrefs()).toastOnTurnFailure) {
+      deps.emit("turn-ci", {
+        directory,
+        repo: run.repo,
+        branch: run.branch,
+        runId: run.id,
+        number: run.number,
+        workflow: run.workflow,
+        conclusion: run.conclusion,
+        attempt: run.attempt
+      });
+    }
+    return { ok: true };
+  };
   function reschedule() {
     const every = interval();
     if (every === null) {
@@ -4742,6 +4852,7 @@ var createEngine = (deps) => {
     setPrefs,
     refreshMarks,
     extraDirs,
+    sessionEvent,
     state,
     overview,
     workflowRuns,
@@ -4816,6 +4927,12 @@ var handleRequest = async (request, engine) => {
       return ok(await engine.getPrefs());
     if (method === "PUT" && path === "/prefs")
       return ok(await engine.setPrefs(readJson(request.body)));
+    if (method === "POST" && path === SESSION_EVENTS_PATH) {
+      const parsed = readSessionEventRequest(request.body);
+      if (!parsed)
+        return fail(400, "Malformed session event.");
+      return ok(await engine.sessionEvent(parsed));
+    }
     if (path === WAITS_START_PATH && method === "POST") {
       const parsed = readWaitStartRequest(request.body);
       if (!parsed)

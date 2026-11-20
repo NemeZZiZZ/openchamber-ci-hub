@@ -3,7 +3,7 @@
 // Everything that touches the outside world comes in through `EngineDeps`, so
 // tests drive it with fakes.
 
-import { formatDuration, isActive, parseRemote, remoteIdentity, runDuration } from '../domain/format.ts';
+import { formatDuration, isActive, isFailed, parseRemote, remoteIdentity, runDuration } from '../domain/format.ts';
 import { buildHandoff, focusJob } from '../domain/handoff.ts';
 import { errorExcerpt } from '../domain/log.ts';
 import { formatRepoKey, legacyRepoKey, parseRepoKey, repoKeyId, repoName, type RepoKey, type RepoRef } from '../domain/repoKey.ts';
@@ -31,9 +31,9 @@ import { knownInstances, resolveToken, serverOf, sourceLabel, type AuthDeps } fr
 
 import type { ServerRepo } from '../providers/types.ts';
 import type { AuditEntry, ConfigStore } from './configStore.ts';
-import { createMarkSync } from './marks.ts';
+import { createMarkSync, latestOnBranch } from './marks.ts';
 import type { Prefs, PrefsStore } from './prefs.ts';
-import type { GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue, ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
+import type { GuestSessionEventRequest, GuestStatusView, GuestWaitCheckOutcome, GuestWaitStartResult, JsonValue, ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
 
 export interface ExecResult {
   code: number;
@@ -757,6 +757,43 @@ export const createEngine = (deps: EngineDeps) => {
     await markSync.sync(rows);
   };
 
+  // ---- session events ---------------------------------------------------
+
+  const notifiedTurns = new Set<string>();
+
+  /**
+   * A turn ended: refresh that project's CI and its mark, then tell the open
+   * frames once per failed run attempt. Never writes to the chat itself.
+   */
+  const sessionEvent = async (request: GuestSessionEventRequest): Promise<{ ok: true }> => {
+    if (request.event.type !== 'turn-finished') return { ok: true };
+    const directory = request.event.project?.directory ?? null;
+    if (!directory) return { ok: true };
+    extraDirs.add(directory);
+    const found = await repoForDirectory(directory).catch(() => null);
+    if (!found) return { ok: true };
+    await pollRepo(found.key).catch(() => undefined);
+    await refreshMarks().catch(() => undefined);
+    const run = latestOnBranch(slotFor(found.key).runs, found.branch);
+    if (!run || !isFailed(run)) return { ok: true };
+    const key = `${run.repo}#${run.id}:${run.attempt}`;
+    if (notifiedTurns.has(key)) return { ok: true };
+    notifiedTurns.add(key);
+    if ((await getPrefs()).toastOnTurnFailure) {
+      deps.emit('turn-ci', {
+        directory,
+        repo: run.repo,
+        branch: run.branch,
+        runId: run.id,
+        number: run.number,
+        workflow: run.workflow,
+        conclusion: run.conclusion,
+        attempt: run.attempt,
+      });
+    }
+    return { ok: true };
+  };
+
   function reschedule() {
     const every = interval();
     if (every === null) {
@@ -1303,6 +1340,7 @@ export const createEngine = (deps: EngineDeps) => {
     setPrefs,
     refreshMarks,
     extraDirs,
+    sessionEvent,
     state,
     overview,
     workflowRuns,
