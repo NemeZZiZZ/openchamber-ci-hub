@@ -126,6 +126,8 @@ server.on('error', (err) => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`[ci-hub] listening on 127.0.0.1:${port}`);
+  // Idle polling keeps sidebar marks fresh even before any frame opens.
+  engine.start();
 });
 
 const shutdown = () => {

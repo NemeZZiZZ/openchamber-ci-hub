@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createEngine, EngineError, type AccountView, type EngineDeps } from '../src/service/engine.ts';
+import { createEngine, EngineError, POLL_IDLE_MS, type AccountView, type EngineDeps } from '../src/service/engine.ts';
 import { createMemoryConfigStore } from '../src/service/configStore.ts';
 import { createMemoryPrefsStore } from '../src/service/prefs.ts';
 
@@ -127,11 +127,32 @@ const setup = (
 };
 
 describe('engine', () => {
-  test('nothing polls until a surface asks', () => {
+  test('nothing polls until a surface asks when marks are off', async () => {
     const { engine, timers, requests } = setup();
+    await engine.setPrefs({ marks: false });
     expect(engine.debug().interval).toBeNull();
     expect(timers).toHaveLength(0);
     expect(requests).toHaveLength(0);
+  });
+
+  test('idle: polls every POLL_IDLE_MS when marks are on and nothing is open', () => {
+    const { engine } = setup();
+    expect(engine.debug().interval).toBe(POLL_IDLE_MS);
+  });
+
+  test('idle: panel open still wins over idle', async () => {
+    const { engine } = setup();
+    await engine.state(null);
+    expect(engine.debug().interval).toBe(20_000);
+  });
+
+  test('start kicks the idle loop without any surface', async () => {
+    const { engine, timers } = setup();
+    engine.start();
+    // reschedule() runs in pollAll's finally, after several awaited steps.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(timers).toHaveLength(1);
+    expect(timers[0]!.ms).toBe(POLL_IDLE_MS);
   });
 
   test('wait starts, keeps waiting while running, fires once completed', async () => {
@@ -368,6 +389,51 @@ describe('engine', () => {
     const view = await engine.overview({ directory: null, projects: [], expanded: [] });
     expect(account(view, 'ghe.acme.io')!.rateLimit?.blockedUntil).toBeGreaterThan(now);
     expect(account(view, 'github.com')!.rateLimit).toBeNull();
+  });
+
+  test('idle: a rate-limit-blocked account is still skipped', async () => {
+    let now = Date.parse('2026-11-14T12:00:00Z');
+    const polled: string[] = [];
+    const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
+      config: createMemoryConfigStore({
+        version: 2,
+        repos: [
+          { key: KEY, enabled: true, addedAt: 0 },
+          { key: GHE, enabled: true, addedAt: 0 },
+        ],
+        directoryMap: {},
+      }),
+      audit: async () => undefined,
+      auth: { readStore: async () => undefined, readSettings: async () => ({}), cliToken: async () => 't' },
+      fetch: async (url) => {
+        const { host, pathname } = new URL(url);
+        if (pathname.endsWith('/actions/runs')) polled.push(host);
+        if (host === 'ghe.acme.io') {
+          return new Response('{}', {
+            status: 403,
+            headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(Math.floor(now / 1000) + 3600) },
+          });
+        }
+        if (pathname.endsWith('/actions/runs')) return Response.json({ workflow_runs: [rawRun()] });
+        return Response.json({ default_branch: 'main' });
+      },
+      git: async () => ({ code: 1, stdout: '', stderr: '' }),
+      emit: () => undefined,
+      needsConfiguration: () => undefined,
+      now: () => now,
+      timers: { set: () => 0, clear: () => undefined },
+    });
+    // No state() or status(): only the idle cadence drives these polls.
+    expect(engine.debug().interval).toBe(POLL_IDLE_MS);
+    await engine.pollAll();
+    const count = (host: string) => polled.filter((h) => h === host).length;
+    expect(count('api.github.com')).toBe(1);
+    expect(count('ghe.acme.io')).toBe(1);
+    now += POLL_IDLE_MS + 1_000;
+    await engine.pollAll();
+    expect(count('api.github.com')).toBe(2);
+    expect(count('ghe.acme.io')).toBe(1);
   });
 
   test('a wait started before the upgrade resumes', async () => {

@@ -64,6 +64,8 @@ export class EngineError extends Error {
 
 export const POLL_FAST_MS = 20_000;
 export const POLL_SLOW_MS = 180_000;
+// Nothing open, but sidebar marks still want fresh state: one slow tick a minute.
+export const POLL_IDLE_MS = 60_000;
 /** The panel counts as open this long after its last read. */
 const PANEL_WINDOW_MS = 75_000;
 /** The status section counts as on screen this long after its last read. */
@@ -674,7 +676,9 @@ export const createEngine = (deps: EngineDeps) => {
     const t = now();
     const due = new Map<string, Target>();
     const repos = await listRepos();
-    if (t - panelSeenAt < PANEL_WINDOW_MS) {
+    const panelOpen = t - panelSeenAt < PANEL_WINDOW_MS;
+    const statusOpen = t - statusSeenAt < STATUS_WINDOW_MS;
+    if (panelOpen) {
       for (const repo of repos) {
         if (!repo.enabled) continue;
         const slot = slotFor(repo.key);
@@ -682,12 +686,22 @@ export const createEngine = (deps: EngineDeps) => {
         if (hot || t - slot.polledAt! >= POLL_SLOW_MS) due.set(repoKeyId(repo.key), targetOf(repo));
       }
     }
-    if (t - statusSeenAt < STATUS_WINDOW_MS) {
+    if (statusOpen) {
       for (const key of statusRepos) {
         const slot = slotFor(key);
         if (slot.polledAt !== null && t - slot.polledAt < POLL_SLOW_MS - 2_000) continue;
         const target = await repoInfo(key).catch(() => null);
         if (target) due.set(repoKeyId(target.key), target);
+      }
+    }
+    // Idle: marks stay fresh even with every frame closed. Hot repos every
+    // tick, quiet ones on the slow cadence; blocked accounts skipped later.
+    if (!panelOpen && !statusOpen && (prefsCache?.marks ?? true)) {
+      for (const repo of repos) {
+        if (!repo.enabled) continue;
+        const slot = slotFor(repo.key);
+        const hot = slot.polledAt === null || busy(slot);
+        if (hot || t - slot.polledAt! >= POLL_SLOW_MS) due.set(repoKeyId(repo.key), targetOf(repo));
       }
     }
     return [...due.values()];
@@ -697,6 +711,7 @@ export const createEngine = (deps: EngineDeps) => {
     const t = now();
     if (t - panelSeenAt < PANEL_WINDOW_MS) return POLL_FAST_MS;
     if (t - statusSeenAt < STATUS_WINDOW_MS) return POLL_SLOW_MS;
+    if (prefsCache?.marks ?? true) return POLL_IDLE_MS;
     return null;
   };
 
@@ -1242,6 +1257,7 @@ export const createEngine = (deps: EngineDeps) => {
     if (typeof patch.toastOnTurnFailure === 'boolean') next.toastOnTurnFailure = patch.toastOnTurnFailure;
     await deps.prefs.save(next);
     prefsCache = next;
+    reschedule();
     return { ...next };
   };
 
@@ -1251,6 +1267,9 @@ export const createEngine = (deps: EngineDeps) => {
   };
 
   return {
+    start: () => {
+      void pollAll().finally(reschedule);
+    },
     getPrefs,
     setPrefs,
     state,
