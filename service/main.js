@@ -1,9 +1,9 @@
 // service/main.ts
 import { execFile } from "node:child_process";
-import { readFile as readFile3 } from "node:fs/promises";
+import { readFile as readFile4 } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 // node_modules/@openchamber/sdk/dist/scrollbar-style.js
 var GUEST_SCROLLING_ATTRIBUTE = "data-oc-scrolling";
 var GUEST_SCROLLBAR_CSS = `
@@ -4883,6 +4883,35 @@ var createEngine = (deps) => {
   };
 };
 
+// src/service/endpoint.ts
+import { mkdir as mkdir3, readFile as readFile3, rename as rename3, rm, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join3 } from "node:path";
+var endpointPath = (home) => join3(home, ".openchamber-ci-hub", "endpoint.json");
+var writeEndpoint = async (home, info) => {
+  const path = endpointPath(home);
+  await mkdir3(join3(home, ".openchamber-ci-hub"), { recursive: true });
+  const tmp = `${path}.${info.pid}.tmp`;
+  await writeFile3(tmp, `${JSON.stringify(info, null, 2)}
+`, { mode: 384 });
+  await rename3(tmp, path);
+};
+var removeEndpoint = async (home, pid) => {
+  const path = endpointPath(home);
+  const raw = await readFile3(path, "utf8").catch(() => {
+    return;
+  });
+  if (raw === undefined)
+    return;
+  try {
+    const current = JSON.parse(raw);
+    if (current.pid !== pid)
+      return;
+  } catch {
+    return;
+  }
+  await rm(path, { force: true });
+};
+
 // src/service/routes.ts
 var ok = (body) => ({ status: 200, body });
 var fail = (status, error, extra = {}) => ({
@@ -5033,8 +5062,8 @@ if (!Number.isInteger(port) || port <= 0 || !token) {
   process.exit(1);
 }
 var home = homedir();
-var dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join3(home, ".openchamber-ci-hub");
-var storePath = join3(home, ".config", "openchamber", "source-control-auth.json");
+var dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join4(home, ".openchamber-ci-hub");
+var storePath = join4(home, ".config", "openchamber", "source-control-auth.json");
 var MAX_BODY_BYTES = 256 * 1024;
 var host = process.env.OPENCHAMBER_HOST_CALLBACK_URL ? createServiceHost({ env: process.env }) : null;
 var run = (program, args, cwd) => new Promise((resolve) => {
@@ -5060,7 +5089,7 @@ var cliToken = async (program, args) => {
 var warnedStore = false;
 var readStore = async () => {
   try {
-    return await readFile3(storePath, "utf8");
+    return await readFile4(storePath, "utf8");
   } catch (err) {
     if (err.code !== "ENOENT" && !warnedStore) {
       warnedStore = true;
@@ -5135,9 +5164,13 @@ server.on("error", (err) => {
 server.listen(port, "127.0.0.1", () => {
   console.log(`[ci-hub] listening on 127.0.0.1:${port}`);
   engine.start();
+  readFile4(new URL("../package.json", import.meta.url), "utf8").then((raw) => JSON.parse(raw).version ?? "0.0.0").catch(() => "0.0.0").then((version) => writeEndpoint(home, { port, token, pid: process.pid, startedAt: Date.now(), version })).catch((err) => console.warn("[ci-hub] could not write the endpoint file:", err.message));
 });
 var shutdown = () => {
   engine.stop();
+  removeEndpoint(home, process.pid).catch(() => {
+    return;
+  });
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 };

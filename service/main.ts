@@ -12,6 +12,7 @@ import { createFileAudit, createFileConfigStore } from '../src/service/configSto
 import { createFilePrefsStore } from '../src/service/prefs.ts';
 import type { ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
 import { createEngine, type ExecResult } from '../src/service/engine.ts';
+import { removeEndpoint, writeEndpoint } from '../src/service/endpoint.ts';
 import { handleRequest } from '../src/service/routes.ts';
 
 const port = Number(process.env.OPENCHAMBER_SERVICE_PORT);
@@ -135,10 +136,20 @@ server.listen(port, '127.0.0.1', () => {
   console.log(`[ci-hub] listening on 127.0.0.1:${port}`);
   // Idle polling keeps sidebar marks fresh even before any frame opens.
   engine.start();
+  // Publish where the OpenCode plugin can reach us. The version is read from
+  // the manifest so the two can never drift apart.
+  void readFile(new URL('../package.json', import.meta.url), 'utf8')
+    .then((raw) => (JSON.parse(raw) as { version?: string }).version ?? '0.0.0')
+    .catch(() => '0.0.0')
+    .then((version) =>
+      writeEndpoint(home, { port, token, pid: process.pid, startedAt: Date.now(), version }),
+    )
+    .catch((err) => console.warn('[ci-hub] could not write the endpoint file:', (err as Error).message));
 });
 
 const shutdown = () => {
   engine.stop();
+  void removeEndpoint(home, process.pid).catch(() => undefined);
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2_000).unref();
 };
