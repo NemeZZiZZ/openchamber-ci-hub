@@ -5,6 +5,7 @@ export const nl: Strings = {
   'block.rerunFailed': 'Mislukte jobs opnieuw uitvoeren',
   'block.rerun': 'Opnieuw uitvoeren',
   'block.failingLog': 'Mislukte log',
+  'block.viewLog': 'Log weergeven',
   'block.hideLog': 'Log verbergen',
   'block.fixWithAgent': 'Oplossen met de agent',
   'block.openCommit': 'Commit-diff openen',

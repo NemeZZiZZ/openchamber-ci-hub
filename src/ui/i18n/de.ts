@@ -5,6 +5,7 @@ export const de: Strings = {
   'block.rerunFailed': 'Fehlgeschlagene Jobs erneut ausführen',
   'block.rerun': 'Erneut ausführen',
   'block.failingLog': 'Fehlgeschlagenes Protokoll',
+  'block.viewLog': 'Protokoll anzeigen',
   'block.hideLog': 'Protokoll ausblenden',
   'block.fixWithAgent': 'Mit dem Agenten beheben',
   'block.openCommit': 'Commit-Diff öffnen',

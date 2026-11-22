@@ -5,6 +5,7 @@ export const es: Strings = {
   'block.rerunFailed': 'Repetir los trabajos fallidos',
   'block.rerun': 'Repetir',
   'block.failingLog': 'Registro con errores',
+  'block.viewLog': 'Ver el registro',
   'block.hideLog': 'Ocultar el registro',
   'block.fixWithAgent': 'Corregir con el agente',
   'block.openCommit': 'Abrir el diff del commit',

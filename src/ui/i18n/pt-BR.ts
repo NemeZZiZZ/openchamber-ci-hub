@@ -5,6 +5,7 @@ export const ptBr: Strings = {
   'block.rerunFailed': 'Executar novamente os jobs com falha',
   'block.rerun': 'Executar novamente',
   'block.failingLog': 'Log com falha',
+  'block.viewLog': 'Ver o log',
   'block.hideLog': 'Ocultar o log',
   'block.fixWithAgent': 'Corrigir com o agente',
   'block.openCommit': 'Abrir o diff do commit',

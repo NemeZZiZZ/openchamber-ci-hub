@@ -5,6 +5,7 @@ export const pl: Strings = {
   'block.rerunFailed': 'Uruchom ponownie nieudane zadania',
   'block.rerun': 'Uruchom ponownie',
   'block.failingLog': 'Log błędu',
+  'block.viewLog': 'Pokaż log',
   'block.hideLog': 'Ukryj log',
   'block.fixWithAgent': 'Napraw z agentem',
   'block.openCommit': 'Otwórz diff commita',

@@ -5,6 +5,7 @@ export const zhCn: Strings = {
   'block.rerunFailed': '重新运行失败的作业',
   'block.rerun': '重新运行',
   'block.failingLog': '失败日志',
+  'block.viewLog': '查看日志',
   'block.hideLog': '隐藏日志',
   'block.fixWithAgent': '让代理修复',
   'block.openCommit': '打开提交差异',

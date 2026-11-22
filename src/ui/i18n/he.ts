@@ -5,6 +5,7 @@ export const he: Strings = {
   'block.rerunFailed': 'הרץ מחדש עבודות שנכשלו',
   'block.rerun': 'הרץ מחדש',
   'block.failingLog': 'לוג הכשל',
+  'block.viewLog': 'הצג את הלוג',
   'block.hideLog': 'הסתר את הלוג',
   'block.fixWithAgent': 'תקן עם הסוכן',
   'block.openCommit': 'פתח את השוואת ה-commit',

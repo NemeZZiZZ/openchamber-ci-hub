@@ -4,12 +4,12 @@
 import { applyHostReady } from '@openchamber/sdk/ui';
 import type { GuestBlockCall, HostClient } from '@openchamber/sdk';
 import { GUEST_FRAME_HEIGHT_MAX } from '@openchamber/sdk';
-import { isFailed, runDurationLabel } from '../domain/format.ts';
+import { conclusionTone, isFailed, runDurationLabel } from '../domain/format.ts';
 import { buildHandoff, failedJobs, focusJob } from '../domain/handoff.ts';
 import type { Job, Run } from '../domain/types.ts';
 import { blockAnswer, blockRunQuery, blockTitle, readBlockArgs, rerunKind } from './blockModel.ts';
 import { h } from './dom.ts';
-import { t } from './i18n.ts';
+import { conLabel, t } from './i18n.ts';
 import { createSvc, errorText } from './port.ts';
 
 const CSS = `
@@ -18,7 +18,15 @@ body{font-family:var(--oc-font,system-ui,sans-serif);font-size:13px;color:var(--
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 .cihb{border:1px solid var(--oc-border,color-mix(in srgb,currentColor 18%,transparent));border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.cihb-title{font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.cihb-title{display:flex;align-items:center;gap:7px;font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.cihb-dot{flex:none;width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,currentColor 35%,transparent)}
+.cihb-dot[data-tone="success"]{background:var(--oc-success,green)}
+.cihb-dot[data-tone="error"]{background:var(--oc-error,red)}
+.cihb-dot[data-tone="warning"]{background:var(--oc-warning,orange)}
+.cihb-dot[data-tone="info"]{background:transparent;border:2px solid var(--oc-info,var(--oc-primary,currentColor));border-right-color:transparent;animation:cihb-spin 1s linear infinite}
+.cihb-dot[data-tone="muted"]{background:transparent;border:2px solid color-mix(in srgb,currentColor 35%,transparent)}
+@keyframes cihb-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.cihb-dot[data-tone="info"]{animation:none}}
 .cihb-meta{font-size:12px;color:var(--oc-muted,color-mix(in srgb,currentColor 60%,transparent));display:flex;flex-wrap:wrap;gap:4px 10px}
 .cihb-sha{background:none;border:0;padding:0;font:inherit;font-family:var(--oc-mono,ui-monospace,monospace);font-size:12px;color:var(--oc-primary-text,inherit);cursor:pointer;text-decoration:underline}
 .cihb-jobs{display:flex;flex-direction:column;gap:3px;font-size:12px}
@@ -78,7 +86,15 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
     const render = () => {
       box.textContent = '';
       const duration = runDurationLabel(run);
-      box.append(h('div', { class: 'cihb-title', text: blockTitle(run) }));
+      const status = run.conclusion ?? run.status;
+      box.append(
+        h(
+          'div',
+          { class: 'cihb-title' },
+          h('span', { class: 'cihb-dot', 'data-tone': conclusionTone(run.conclusion, run.status), title: conLabel(status) }),
+          h('span', { text: blockTitle(run) }),
+        ),
+      );
       box.append(
         h(
           'div',
@@ -131,7 +147,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
           h('button', {
             class: 'cihb-btn',
             type: 'button',
-            text: logOpen ? t('block.hideLog') : t('block.failingLog'),
+            text: logOpen ? t('block.hideLog') : isFailed(run) ? t('block.failingLog') : t('block.viewLog'),
             onClick: async () => {
               logOpen = !logOpen;
               if (logOpen && log === null) {
@@ -152,17 +168,20 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
         );
       }
 
-      actions.append(
-        h('button', {
-          class: 'cihb-btn',
-          type: 'button',
-          text: t('block.fixWithAgent'),
-          onClick: () => {
-            const handoff = buildHandoff({ run, jobs, job, log, logTruncated, mode: 'fix' });
-            void host.answerBlock(blockAnswer(handoff.text)).catch(() => undefined);
-          },
-        }),
-      );
+      // There is nothing for the agent to fix in a run that did not fail.
+      if (isFailed(run)) {
+        actions.append(
+          h('button', {
+            class: 'cihb-btn',
+            type: 'button',
+            text: t('block.fixWithAgent'),
+            onClick: () => {
+              const handoff = buildHandoff({ run, jobs, job, log, logTruncated, mode: 'fix' });
+              void host.answerBlock(blockAnswer(handoff.text)).catch(() => undefined);
+            },
+          }),
+        );
+      }
       box.append(actions);
 
       if (logOpen && log !== null) {

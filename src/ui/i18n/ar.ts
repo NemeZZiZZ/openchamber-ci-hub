@@ -5,6 +5,7 @@ export const ar: Strings = {
   'block.rerunFailed': 'إعادة تشغيل المهام الفاشلة',
   'block.rerun': 'إعادة التشغيل',
   'block.failingLog': 'سجل الفشل',
+  'block.viewLog': 'عرض السجل',
   'block.hideLog': 'إخفاء السجل',
   'block.fixWithAgent': 'إصلاح باستخدام الوكيل',
   'block.openCommit': 'فتح فرق الـcommit',

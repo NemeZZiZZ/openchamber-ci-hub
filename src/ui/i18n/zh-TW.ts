@@ -5,6 +5,7 @@ export const zhTw: Strings = {
   'block.rerunFailed': '重新執行失敗的工作',
   'block.rerun': '重新執行',
   'block.failingLog': '失敗記錄',
+  'block.viewLog': '檢視記錄',
   'block.hideLog': '隱藏記錄',
   'block.fixWithAgent': '交給代理修正',
   'block.openCommit': '開啟提交差異',

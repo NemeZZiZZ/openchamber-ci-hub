@@ -6,6 +6,7 @@ export const ru = {
   'block.rerunFailed': 'Перезапустить задачи с ошибками',
   'block.rerun': 'Перезапустить',
   'block.failingLog': 'Журнал с ошибкой',
+  'block.viewLog': 'Показать журнал',
   'block.hideLog': 'Скрыть журнал',
   'block.fixWithAgent': 'Исправить с агентом',
   'block.openCommit': 'Открыть дифф коммита',

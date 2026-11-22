@@ -5,6 +5,7 @@ export const tr: Strings = {
   'block.rerunFailed': 'Başarısız işleri yeniden çalıştır',
   'block.rerun': 'Yeniden çalıştır',
   'block.failingLog': 'Başarısız günlük',
+  'block.viewLog': 'Günlüğü göster',
   'block.hideLog': 'Günlüğü gizle',
   'block.fixWithAgent': 'Ajan ile düzelt',
   'block.openCommit': 'Commit farkını aç',

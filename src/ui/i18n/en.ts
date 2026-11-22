@@ -6,6 +6,7 @@ export const en = {
   'block.rerunFailed': 'Re-run failed jobs',
   'block.rerun': 'Re-run',
   'block.failingLog': 'Failing log',
+  'block.viewLog': 'View log',
   'block.hideLog': 'Hide the log',
   'block.fixWithAgent': 'Fix with the agent',
   'block.openCommit': 'Open the commit diff',

@@ -5,6 +5,7 @@ export const ja: Strings = {
   'block.rerunFailed': '失敗したジョブを再実行',
   'block.rerun': '再実行',
   'block.failingLog': '失敗ログ',
+  'block.viewLog': 'ログを表示',
   'block.hideLog': 'ログを非表示',
   'block.fixWithAgent': 'エージェントで修正',
   'block.openCommit': 'コミットの差分を開く',

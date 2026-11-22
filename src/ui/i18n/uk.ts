@@ -5,6 +5,7 @@ export const uk: Strings = {
   'block.rerunFailed': 'Перезапустити завдання з помилками',
   'block.rerun': 'Перезапустити',
   'block.failingLog': 'Журнал з помилкою',
+  'block.viewLog': 'Показати журнал',
   'block.hideLog': 'Сховати журнал',
   'block.fixWithAgent': 'Виправити з агентом',
   'block.openCommit': 'Відкрити диф коміту',

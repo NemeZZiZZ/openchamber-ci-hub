@@ -5,6 +5,7 @@ export const ko: Strings = {
   'block.rerunFailed': '실패한 작업 다시 실행',
   'block.rerun': '다시 실행',
   'block.failingLog': '실패 로그',
+  'block.viewLog': '로그 보기',
   'block.hideLog': '로그 숨기기',
   'block.fixWithAgent': '에이전트로 수정',
   'block.openCommit': '커밋 diff 열기',
