@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { agoText, conLabel, dirOf, localeName, pickLocale, pluralTables, setLocale, strings, t, tPlural } from '../src/ui/i18n.ts';
+import { agoText, conLabel, dirOf, localeName, pickLocale, setLocale, strings, t, tPlural } from '../src/ui/i18n.ts';
+import { pluralTables } from '../src/ui/i18n/all.ts';
 import { en } from '../src/ui/i18n/en.ts';
 import { formatAgo } from '../src/domain/format.ts';
 
@@ -75,13 +76,13 @@ function placeholders(text: string): string[] {
 
 describe('locale catalogs', () => {
   test('every locale file is imported', async () => {
-    const registry = (await import('../src/ui/i18n.ts')).locales;
+    const registry = (await import('../src/ui/i18n/all.ts')).locales;
     expect(Object.keys(registry).sort()).toEqual(
       ['ar', 'de', 'en', 'es', 'fr', 'he', 'ja', 'ko', 'nl', 'pl', 'pt-BR', 'tr', 'uk', 'ru', 'zh-CN', 'zh-TW'].sort(),
     );
   });
   test('every locale has exactly the english keys with the same placeholders', async () => {
-    const { locales } = await import('../src/ui/i18n.ts');
+    const { locales } = await import('../src/ui/i18n/all.ts');
     const enKeys = Object.keys(en);
     for (const [name, catalog] of Object.entries(locales)) {
       if (name === 'en') continue;

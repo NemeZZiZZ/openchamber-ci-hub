@@ -1,7 +1,10 @@
 import { connectHost } from '@openchamber/sdk';
 import { applyHostReady } from '@openchamber/sdk/ui';
 import { startApp } from '../src/ui/app.ts';
-import { dirOf, setLocale } from '../src/ui/i18n.ts';
+import { dirOf, installCatalogs, setLocale } from '../src/ui/i18n.ts';
+import { allCatalogs } from '../src/ui/i18n/all.ts';
+
+installCatalogs(allCatalogs);
 
 const root = document.getElementById('root');
 if (!root) throw new Error('CI Hub: #root is missing');

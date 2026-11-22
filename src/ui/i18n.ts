@@ -2,22 +2,7 @@
 // locale mirrors its keys exactly (enforced by the Strings type and by
 // test/i18n.test.ts). Agent/model-facing strings stay english on purpose.
 
-import { ar, plurals as pluralsAr } from './i18n/ar.ts';
-import { de, plurals as pluralsDe } from './i18n/de.ts';
-import { en, plurals as pluralsEn, type Key, type Strings } from './i18n/en.ts';
-import { es, plurals as pluralsEs } from './i18n/es.ts';
-import { fr, plurals as pluralsFr } from './i18n/fr.ts';
-import { he, plurals as pluralsHe } from './i18n/he.ts';
-import { ja, plurals as pluralsJa } from './i18n/ja.ts';
-import { ko, plurals as pluralsKo } from './i18n/ko.ts';
-import { nl, plurals as pluralsNl } from './i18n/nl.ts';
-import { pl, plurals as pluralsPl } from './i18n/pl.ts';
-import { ru, plurals as pluralsRu } from './i18n/ru.ts';
-import { zhCn, plurals as pluralsZhCn } from './i18n/zh-CN.ts';
-import { zhTw, plurals as pluralsZhTw } from './i18n/zh-TW.ts';
-import { ptBr, plurals as pluralsPtBr } from './i18n/pt-BR.ts';
-import { tr, plurals as pluralsTr } from './i18n/tr.ts';
-import { uk, plurals as pluralsUk } from './i18n/uk.ts';
+import type { Key, Strings } from './i18n/en.ts';
 
 export type { Key, Strings };
 
@@ -25,53 +10,30 @@ export type { Key, Strings };
 export type PluralForms = { other: string } & Partial<Record<string, string>>;
 export type PluralTable = Record<string, PluralForms>;
 
-export const locales: Record<string, Strings> = {
-  en,
-  de,
-  fr,
-  'zh-CN': zhCn,
-  'zh-TW': zhTw,
-  uk,
-  es,
-  'pt-BR': ptBr,
-  ko,
-  pl,
-  ja,
-  tr,
-  nl,
-  he,
-  ar,
-  ru,
+/**
+ * The catalogs a bundle carries. The panel installs every key
+ * (./i18n/all.ts); the block and background bundles install only the keys
+ * their code asks for (./i18n/pick.ts), so each frame does not ship the
+ * whole panel catalog in every language.
+ */
+export type Catalogs = {
+  strings: Record<string, Partial<Strings>>;
+  plurals: Record<string, PluralTable>;
 };
 
-export const pluralTables: Record<string, PluralTable> = {
-  en: pluralsEn,
-  de: pluralsDe,
-  fr: pluralsFr,
-  'zh-CN': pluralsZhCn,
-  'zh-TW': pluralsZhTw,
-  uk: pluralsUk,
-  es: pluralsEs,
-  'pt-BR': pluralsPtBr,
-  ko: pluralsKo,
-  pl: pluralsPl,
-  ja: pluralsJa,
-  tr: pluralsTr,
-  nl: pluralsNl,
-  he: pluralsHe,
-  ar: pluralsAr,
-  ru: pluralsRu,
-};
+let installed: Catalogs = { strings: {}, plurals: {} };
 
-const enPlurals: PluralTable = pluralsEn;
+export function installCatalogs(catalogs: Catalogs): void {
+  installed = catalogs;
+  byLowerName = new Map(Object.keys(catalogs.strings).map((name) => [name.toLowerCase(), name]));
+  setLocale(currentName);
+}
 
 function normalize(raw: string | null | undefined): string {
   return (raw ?? '').trim().toLowerCase().replace(/_/g, '-');
 }
 
-const byLowerName = new Map<string, string>(
-  Object.keys(locales).map((name) => [name.toLowerCase(), name]),
-);
+let byLowerName = new Map<string, string>();
 
 /** Resolve a host locale tag to a catalog: exact, then language, then en. */
 export function pickLocale(raw: string | null | undefined): string {
@@ -81,7 +43,7 @@ export function pickLocale(raw: string | null | undefined): string {
   if (exact) return exact;
   const lang = tag.split('-')[0];
   if (lang === 'zh') return 'zh-CN';
-  for (const name of Object.keys(locales)) {
+  for (const name of Object.keys(installed.strings)) {
     if (name.toLowerCase() === lang || name.toLowerCase().startsWith(`${lang}-`)) return name;
   }
   return 'en';
@@ -92,15 +54,18 @@ export function dirOf(locale: string): 'rtl' | 'ltr' {
   return lang === 'he' || lang === 'ar' ? 'rtl' : 'ltr';
 }
 
-let current: Strings = en;
-let currentPlurals: PluralTable = pluralsEn;
+const english = (): Partial<Strings> => installed.strings['en'] ?? {};
+const englishPlurals = (): PluralTable => installed.plurals['en'] ?? {};
+
+let current: Partial<Strings> = {};
+let currentPlurals: PluralTable = {};
 let currentName = 'en';
 
 /** Switch the active catalog; accepts a raw host locale tag. */
 export function setLocale(raw: string | null | undefined): string {
   currentName = pickLocale(raw);
-  current = locales[currentName] ?? en;
-  currentPlurals = pluralTables[currentName] ?? enPlurals;
+  current = installed.strings[currentName] ?? english();
+  currentPlurals = installed.plurals[currentName] ?? englishPlurals();
   return currentName;
 }
 
@@ -108,8 +73,8 @@ export function localeName(): string {
   return currentName;
 }
 
-/** Active catalog (defaults to english). */
-export function strings(): Strings {
+/** Active catalog (defaults to english); a picked bundle holds only its own keys. */
+export function strings(): Partial<Strings> {
   return current;
 }
 
@@ -120,7 +85,7 @@ const fill = (template: string, vars: Record<string, string | number>): string =
 
 /** Translate a key, substituting {placeholders} from vars. */
 export function t(key: Key, vars?: Record<string, string | number>): string {
-  const template = current[key] ?? en[key] ?? key;
+  const template = current[key] ?? english()[key] ?? key;
   if (!vars) return template;
   return fill(template, vars);
 }
@@ -140,8 +105,8 @@ const pluralCategory = (n: number): string => {
  * the plain key from the catalog when no plural forms are listed for it.
  */
 export function tPlural(key: string, n: number, vars?: Record<string, string | number>): string {
-  const forms = currentPlurals[key] ?? enPlurals[key];
-  const template = forms ? (forms[pluralCategory(n)] ?? forms.other) : (current[key as Key] ?? en[key as Key] ?? key);
+  const forms = currentPlurals[key] ?? englishPlurals()[key];
+  const template = forms ? (forms[pluralCategory(n)] ?? forms.other) : (current[key as Key] ?? english()[key as Key] ?? key);
   return fill(template, { ...vars, n });
 }
 
