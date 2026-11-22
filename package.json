@@ -1,6 +1,6 @@
 {
   "name": "openchamber-ci-hub",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "files": [
     "panel/index.html",
     "panel/main.js",
@@ -13,6 +13,7 @@
     "skills",
     "service/main.js",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "description": "CI console inside OpenChamber: runs, failing logs, re-run, cancel, dispatch and agent handoff for GitHub Actions, GitLab, Gitea, Forgejo, Woodpecker and Bitbucket.",
@@ -257,10 +258,8 @@
     "test": "bun test",
     "check": "bun run typecheck && bun test && bun run build && bunx openchamber-guest-check"
   },
-  "dependencies": {
-    "@openchamber/sdk": "2.7.1"
-  },
   "devDependencies": {
+    "@openchamber/sdk": "2.7.1",
     "@types/bun": "^1.4.4",
     "@types/node": "26.6.6",
     "typescript": "^7.0.2"

@@ -4,7 +4,7 @@ All notable changes to CI Hub are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] — 2026-11-22
 
 ### Fixed
 
@@ -18,6 +18,34 @@ All notable changes to CI Hub are documented here. The format follows
   parameter (as the panel does), so each card failed with the service's
   "Missing id." The block now sends `id` through `blockRunQuery`, pinned by
   a block↔route contract test.
+- **Buttons on the `CiRun` card and the panel's preference toggles did
+  nothing.** `h()` registered `onClick` as a `Click` event; event names are
+  now lower-cased.
+- **A re-run error on the card vanished at once**: the next render wiped it.
+  It now stays under the actions.
+- **One hung provider host stalled every poll.** Every provider request now
+  times out after 20 seconds, and a host that keeps answering with 5xx or
+  network errors is polled with exponential backoff (30 s up to 10 min)
+  until it answers again.
+- A late dispatch error no longer lands on a dialog opened for another
+  repository.
+- The service answers an oversized request body with 413 instead of a 500
+  on a dead socket, and compares its bearer token in constant time.
+- Settings are read once per request instead of up to four times, wait
+  timers are cleared, and the rejected-token memory keeps one token per
+  account instead of growing.
+
+### Changed
+
+- **Smaller frames.** The `CiRun` block and the background frame now carry
+  only their own strings in each language, picked at build time:
+  `panel/background.js` 229 → 37 KB, `panel/block.js` 264 → 84 KB.
+- README installs from the git URL, which follows updates; releases attach
+  an installable `.zip`.
+- CI runs on every push and pull request, pins Bun 1.4.0 and fails when the
+  committed bundles differ from a clean rebuild; a release tag must match
+  `package.json`'s version.
+- `@openchamber/sdk` is a dev dependency: the bundles are self-contained.
 
 ## [0.3.0] — 2026-11-20
 
@@ -124,6 +152,8 @@ First public release.
   sparkline of the last 20 runs.
 - Tokens stay in the service process only and go to their own host.
 
+[0.3.1]: https://github.com/NemeZZiZZ/openchamber-ci-hub/releases/tag/v0.3.1
+[0.3.0]: https://github.com/NemeZZiZZ/openchamber-ci-hub/releases/tag/v0.3.0
 [0.2.0]: https://github.com/NemeZZiZZ/openchamber-ci-hub/releases/tag/v0.2.0
 [0.1.1]: https://github.com/NemeZZiZZ/openchamber-ci-hub/releases/tag/v0.1.1
 [0.1.0]: https://github.com/NemeZZiZZ/openchamber-ci-hub/releases/tag/v0.1.0

@@ -1,4 +1,4 @@
-# Release: on a v* tag, check, build and publish to npm.
+# Release: on a v* tag, verify, then publish a GitHub release and the npm package.
 name: Release
 
 on:
@@ -10,27 +10,54 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # GitHub release
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v4
 
+      - name: Reject internal planning documents
+        run: |
+          if [ -n "$(git ls-files 'docs/superpowers/**')" ]; then
+            echo 'docs/superpowers must not be tracked in the public repository'
+            exit 1
+          fi
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: '1.4.0'
 
       - run: bun install --frozen-lockfile
 
       # typecheck + tests + bundle build + guest manifest check
       - run: bun run check
 
+      - name: Verify committed bundles match a clean rebuild
+        run: git diff --exit-code -- panel/main.js panel/block.js panel/background.js service/main.js
+
+      # OpenChamber's update check compares package.json versions, so the tag
+      # must name the version the tagged commit already carries.
+      - name: Verify release tag matches package version
+        run: test "$GITHUB_REF_NAME" = "v$(bun -p "require('./package.json').version")"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      # the tag is the source of truth for the published version
-      - run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      # The zip holds exactly the npm package files; OpenChamber installs it
+      # from Settings → Extensions → Add.
+      - name: Package
+        run: |
+          mkdir -p dist
+          npm pack --pack-destination dist
+          tar -xzf dist/*.tgz -C dist
+          (cd dist/package && zip -qr "../openchamber-ci-hub-${GITHUB_REF_NAME}.zip" .)
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/openchamber-ci-hub-*.zip
+          generate_release_notes: true
 
       # A release published by hand leaves this run green instead of failing
       # with E403 on a version that is already on the registry.

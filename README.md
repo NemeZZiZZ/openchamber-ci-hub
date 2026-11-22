@@ -39,7 +39,17 @@ Requires OpenChamber 2.7.1 or newer (desktop or web; the panel, page, blocks, ma
 
 ## Install
 
-The package is not in a catalog yet. Clone the repository, run `bun run check` once (installs, typechecks, tests and builds `panel/main.js` / `service/main.js`), then add the folder in OpenChamber: **Settings → Extensions → Add** — or open an `openchamber://extensions/install?path=…` link pointing at the checkout. Tokens go on the extension's card afterwards; see [Account](#account) and the provider notes below.
+In OpenChamber open **Settings → Extensions → Add** and paste the repository URL:
+
+```text
+https://github.com/NemeZZiZZ/openchamber-ci-hub.git
+```
+
+The built bundles are committed, so nothing needs building. A git install follows updates: Settings → Extensions shows **Update available** once a newer version lands on the tracked branch. Append `#v0.3.1` (or any tag) to pin a release instead. Tokens go on the extension's card afterwards; see [Account](#account) and the provider notes below.
+
+The same package is on npm (`openchamber-ci-hub`) and attached to each [GitHub release](https://github.com/NemeZZiZZ/openchamber-ci-hub/releases) as a `.zip`; a folder or zip install works too but never updates.
+
+To hack on it, clone and run `bun run check` (typecheck, tests, bundle build, guest manifest check), then add the folder in **Settings → Extensions → Add**:
 
 ```sh
 git clone https://github.com/NemeZZiZZ/openchamber-ci-hub.git
