@@ -4,6 +4,16 @@ All notable changes to CI Hub are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`CiRun` cards drew as plain text.** The agent instructions and the
+  `ci-hub` skill told the agent to put `CiRun("repo", "runId")` on its own
+  line, so replies carried it bare in prose and the chat showed the call as
+  text. Both now show it inside an `openui-lang` fence under
+  `root = Stack([...])`, the only place a UI block draws.
+
 ## [0.3.0] — 2026-11-20
 
 Extension surfaces beyond the panel: CI state shows up on the sidebar, inside

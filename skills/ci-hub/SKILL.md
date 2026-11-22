@@ -14,7 +14,14 @@ CI Hub's tools talk to the CI Hub service, which holds the provider tokens. Do n
 3. **Read the failure.** `ci_failing_log` returns the error excerpt of the first failed job; pass `jobId` for a different job. The excerpt is capped, so a missing line means the log was trimmed, not that the error is absent.
 4. **Fix.** Change the code the log indicts. Never invent run ids, job names or log lines.
 5. **Re-run.** `ci_rerun` retries just the failed jobs of the run. Report the answer's `ok`; do not claim the run is green until a later `ci_run_detail` says so.
-6. **Show it.** Put `CiRun("repo", "runId")` on its own line with the exact values from the tool answer. The user gets a live card with the status and the actions.
+6. **Show it.** Write the card as a UI block with the exact values from the tool answer. A bare `CiRun(...)` line in prose shows as text; it draws only inside an `openui-lang` fence:
+
+   ```openui-lang
+   root = Stack([run])
+   run = CiRun("github:host/owner/name", "123")
+   ```
+
+   The user gets a live card with the status and the actions. Several runs: one block, one `CiRun` statement each, all listed in `Stack([...])`.
 
 ## Errors
 

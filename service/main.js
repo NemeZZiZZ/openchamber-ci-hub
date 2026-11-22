@@ -5056,7 +5056,13 @@ Repository keys look like "github:host/owner/name" (the provider prefix changes 
 
 To fix a failure: ci_list_runs → ci_run_detail → ci_failing_log, then change the code, then ci_rerun. Report what the log actually showed; do not speculate about causes the log does not contain.
 
-When you report a finished run, render it with the CiRun block: CiRun("repo", "runId") on its own line, using the exact repo key and run id from the tool answer. The block draws the live status, the failed jobs and the actions.`;
+When you report a run, show it with the CiRun block, using the exact repo key and run id from the tool answer. CiRun is a UI block component: it draws only inside an openui-lang fence, never as a bare line of prose (bare, the user sees the text CiRun(...), not a card). Several runs go in one block:
+\`\`\`openui-lang
+root = Stack([a, b])
+a = CiRun("github:host/owner/name", "123")
+b = CiRun("github:host/owner/name", "124")
+\`\`\`
+The block draws the live status, the failed jobs and the actions.`;
 
 // src/service/routes.ts
 var ok = (body) => ({ status: 200, body });
