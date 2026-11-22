@@ -1,4 +1,4 @@
-# Release: on a v* tag, verify, then publish a GitHub release and the npm package.
+# Release: on a v* tag, verify, then attach an installable zip to the GitHub release.
 name: Release
 
 on:
@@ -7,11 +7,10 @@ on:
       - "v*"
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GitHub release
-      id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v4
 
@@ -42,9 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
 
-      # The zip holds exactly the npm package files; OpenChamber installs it
+      # The zip holds exactly the package files; OpenChamber installs it
       # from Settings → Extensions → Add.
       - name: Package
         run: |
@@ -58,16 +56,3 @@ jobs:
         with:
           files: dist/openchamber-ci-hub-*.zip
           generate_release_notes: true
-
-      # A release published by hand leaves this run green instead of failing
-      # with E403 on a version that is already on the registry.
-      - name: Publish to npm
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          if npm view "openchamber-ci-hub@${version}" version >/dev/null 2>&1; then
-            echo "openchamber-ci-hub@${version} is already on npm; nothing to publish."
-          else
-            npm publish --provenance --access public
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

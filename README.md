@@ -47,7 +47,7 @@ https://github.com/NemeZZiZZ/openchamber-ci-hub.git
 
 The built bundles are committed, so nothing needs building. A git install follows updates: Settings → Extensions shows **Update available** once a newer version lands on the tracked branch. Append `#v0.3.1` (or any tag) to pin a release instead. Tokens go on the extension's card afterwards; see [Account](#account) and the provider notes below.
 
-The same package is on npm (`openchamber-ci-hub`) and attached to each [GitHub release](https://github.com/NemeZZiZZ/openchamber-ci-hub/releases) as a `.zip`; a folder or zip install works too but never updates.
+The same package is attached to each [GitHub release](https://github.com/NemeZZiZZ/openchamber-ci-hub/releases) as a `.zip`; a folder or zip install works too but never updates.
 
 To hack on it, clone and run `bun run check` (typecheck, tests, bundle build, guest manifest check), then add the folder in **Settings → Extensions → Add**:
 
