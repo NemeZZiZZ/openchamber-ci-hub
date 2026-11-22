@@ -69,7 +69,7 @@ export const openDispatch = (app: App, target: string) => {
       app.renderSide();
     })
     .catch((err: unknown) => {
-      if (!s.dispatch) return;
+      if (!s.dispatch || s.dispatchRepo !== forRepo) return;
       s.dispatch.loading = false;
       s.dispatch.error = errorText(err);
       app.renderSide();

@@ -75,6 +75,9 @@ const PANEL_WINDOW_MS = 75_000;
 const STATUS_WINDOW_MS = 60_000;
 /** A repository counts as busy while a run is active or one finished this recently. */
 const RECENT_MS = 60 * 60_000;
+/** A failing host is retried after 30 s, then twice as long each time, at most 10 min. */
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_MAX_MS = 10 * 60_000;
 /** How long a filtered list (branch, actor, status) is served from memory. */
 const QUERY_TTL_MS = 15_000;
 /** How long the list of servers connected in OpenChamber is reused. */
@@ -176,6 +179,8 @@ export const createEngine = (deps: EngineDeps) => {
   const clients = new Map<string, { token: string; client: CiClient; origin: string | undefined; user: string | undefined }>();
   const auths = new Map<string, AuthState>();
   const rates = new Map<string, RateLimitInfo>();
+  /** Accounts whose host failed (5xx, no answer): background polls wait until `until`. */
+  const backoffs = new Map<string, { failures: number; until: number }>();
   let known: { at: number; list: KnownInstance[] } | null = null;
 
   let panelSeenAt = 0;
@@ -190,6 +195,17 @@ export const createEngine = (deps: EngineDeps) => {
   let loopDueAt = 0;
   let polling: Promise<void> | null = null;
   let lastConfigMessage: string | null | undefined;
+  // One request resolves a token, a server and a user: each would ask the
+  // host for its settings again. A short-lived copy answers them all.
+  const SETTINGS_TTL_MS = 2_000;
+  let settingsCache: { at: number; value: Promise<Record<string, string>> } | null = null;
+  const readSettings = (): Promise<Record<string, string>> => {
+    if (settingsCache && now() - settingsCache.at < SETTINGS_TTL_MS) return settingsCache.value;
+    const value = deps.auth.readSettings().catch(() => ({}) as Record<string, string>);
+    settingsCache = { at: now(), value };
+    return value;
+  };
+  const authDeps: AuthDeps = { ...deps.auth, readSettings };
   /** The latest `servers()` answer; setAuth reads it without awaiting. */
   let serverList: { provider: Provider; origin: string; host: string }[] = [];
 
@@ -234,7 +250,7 @@ export const createEngine = (deps: EngineDeps) => {
    * tokens from the settings and shows up as an account on its own.
    */
   const servers = async (): Promise<{ provider: Provider; origin: string; host: string }[]> => {
-    const settings = await deps.auth.readSettings().catch(() => ({}) as Record<string, string>);
+    const settings = await readSettings();
     const out: { provider: Provider; origin: string; host: string }[] = [];
     for (const provider of PROVIDERS) {
       const server = serverOf(settings, provider);
@@ -258,21 +274,21 @@ export const createEngine = (deps: EngineDeps) => {
     }
   };
 
-  /** Tokens a host answered 401 to; they stay rejected until the source hands us another. */
-  const rejected = new Map<string, Set<string>>();
+  /** The token a host last answered 401 to; it stays rejected until the source hands us another. */
+  const rejected = new Map<string, string>();
 
   const rejectedMessage = (provider: Provider, source: TokenSource) =>
     `${provider.label} rejected the ${sourceLabel(source, provider)}. Reconnect ${provider.label} in OpenChamber or paste a new token on the CI Hub card.`;
 
   const clientFor = async (provider: Provider, host: string): Promise<CiClient> => {
     const account = accountOf(provider, host);
-    const result = await resolveToken(deps.auth, provider, host);
+    const result = await resolveToken(authDeps, provider, host);
     if (result.token === null) {
       setAuth(provider, host, { ok: false, source: null, sourceLabel: null, message: result.message });
       throw new EngineError(result.message, 401);
     }
     const label = sourceLabel(result.source, provider);
-    if (rejected.get(account)?.has(result.token)) {
+    if (rejected.get(account) === result.token) {
       const message = rejectedMessage(provider, result.source);
       setAuth(provider, host, { ok: false, source: result.source, sourceLabel: label, message });
       throw new EngineError(message, 401);
@@ -284,7 +300,7 @@ export const createEngine = (deps: EngineDeps) => {
     const origin = server?.origin;
     // A user:secret provider (Bitbucket's email) carries its other half on
     // the card too; a change there must not reuse the old client.
-    const settings = await deps.auth.readSettings().catch(() => ({}) as Record<string, string>);
+    const settings = await readSettings();
     const user = provider.authSetting ? settings[provider.authSetting]?.trim() || undefined : undefined;
     const existing = clients.get(account);
     // Same token on a re-pointed server (scheme flip) must not reuse the old client.
@@ -441,7 +457,11 @@ export const createEngine = (deps: EngineDeps) => {
   /** Records what a host told us about limits and tokens. */
   const observe = (target: Target, err: unknown) => {
     if (!(err instanceof ProviderError)) return;
-    if (err.kind === 'rate-limit') {
+    if (err.kind === 'network' || err.kind === 'server') {
+      const failures = (backoffs.get(target.account)?.failures ?? 0) + 1;
+      const wait = Math.min(BACKOFF_BASE_MS * 2 ** (failures - 1), BACKOFF_MAX_MS);
+      backoffs.set(target.account, { failures, until: now() + wait });
+    } else if (err.kind === 'rate-limit') {
       rates.set(target.account, {
         remaining: 0,
         resetAt: err.rateLimitReset,
@@ -451,11 +471,7 @@ export const createEngine = (deps: EngineDeps) => {
     } else if (err.kind === 'auth') {
       const current = clients.get(target.account);
       const source = auths.get(target.account)?.source ?? null;
-      if (current) {
-        const set = rejected.get(target.account) ?? new Set<string>();
-        set.add(current.token);
-        rejected.set(target.account, set);
-      }
+      if (current) rejected.set(target.account, current.token);
       if (source) {
         setAuth(target.provider, target.ref.host, {
           ok: false,
@@ -479,7 +495,9 @@ export const createEngine = (deps: EngineDeps) => {
     }
     const client = await clientFor(target.provider, target.ref.host);
     try {
-      return await work(client);
+      const result = await work(client);
+      backoffs.delete(target.account);
+      return result;
     } catch (err) {
       observe(target, err);
       throw err;
@@ -544,7 +562,7 @@ export const createEngine = (deps: EngineDeps) => {
   };
 
   const settingsRepos = async (): Promise<RepoKey[]> => {
-    const settings = await deps.auth.readSettings().catch(() => ({}) as Record<string, string>);
+    const settings = await readSettings();
     const entries = (settings.repos ?? '')
       .split(/[\s,]+/)
       .map((entry) => entry.trim())
@@ -741,9 +759,10 @@ export const createEngine = (deps: EngineDeps) => {
   const pollAll = async () => {
     if (polling) return polling;
     polling = (async () => {
-      // A host that asked us to wait is skipped; the others carry on.
+      // A host that asked us to wait, or keeps failing, is skipped; the others carry on.
       for (const target of await watched()) {
         if (blockOf(target.account)) continue;
+        if ((backoffs.get(target.account)?.until ?? 0) > now()) continue;
         await pollRepo(target.key);
       }
       await refreshMarks().catch(() => undefined);
@@ -847,13 +866,22 @@ export const createEngine = (deps: EngineDeps) => {
     }, every);
   }
 
+  /** Waits for `work` at most `ms`; the timer goes away with whichever ends first. */
+  const raceTimer = async (work: Promise<unknown>, ms: number): Promise<void> => {
+    let handle: unknown;
+    try {
+      await Promise.race([work, new Promise<void>((resolve) => (handle = timers.set(resolve, ms)))]);
+    } finally {
+      timers.clear(handle);
+    }
+  };
+
   /** Waits for a fresh read when the cache is older than `maxAge`, briefly. */
   const ensureFresh = async (target: Target, maxAge: number, waitMs: number) => {
     const slot = slotFor(target.key);
     if (slot.polledAt !== null && now() - slot.polledAt < maxAge) return;
     if (blockOf(target.account)) return;
-    const work = pollRepo(target.key);
-    await Promise.race([work, new Promise<void>((resolve) => timers.set(resolve, waitMs))]);
+    await raceTimer(pollRepo(target.key), waitMs);
   };
 
   const providers = () => PROVIDERS.map(providerView);
@@ -937,10 +965,7 @@ export const createEngine = (deps: EngineDeps) => {
       (target) => slotFor(target.key).polledAt === null && auths.get(target.account)?.ok && !blockOf(target.account),
     );
     if (empty.length > 0) {
-      await Promise.race([
-        Promise.all(empty.map((target) => pollRepo(target.key).catch(() => undefined))),
-        new Promise<void>((resolve) => timers.set(resolve, 8_000)),
-      ]);
+      await raceTimer(Promise.all(empty.map((target) => pollRepo(target.key).catch(() => undefined))), 8_000);
     }
 
     const repos: OverviewRepo[] = views.map((repo) => {

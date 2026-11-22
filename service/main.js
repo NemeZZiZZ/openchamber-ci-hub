@@ -1,5 +1,6 @@
 // service/main.ts
 import { execFile } from "node:child_process";
+import { timingSafeEqual } from "node:crypto";
 import { readFile as readFile4 } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
@@ -543,6 +544,26 @@ var createFilePrefsStore = (dir) => {
   };
 };
 
+// src/providers/errors.ts
+var withTimeout = (fetch2, ms) => (input, init) => {
+  const timeout = AbortSignal.timeout(ms);
+  const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  return fetch2(input, { ...init, signal });
+};
+
+class ProviderError extends Error {
+  kind;
+  status;
+  rateLimitReset;
+  constructor(message, options) {
+    super(message);
+    this.name = "ProviderError";
+    this.kind = options.kind;
+    this.status = options.status ?? 0;
+    this.rateLimitReset = options.rateLimitReset ?? null;
+  }
+}
+
 // src/domain/format.ts
 var formatDuration = (ms) => {
   if (!Number.isFinite(ms) || ms < 0)
@@ -1033,20 +1054,6 @@ ${block.trimEnd()}`;
   }
   return clean(text).slice(0, 2000);
 };
-
-// src/providers/errors.ts
-class ProviderError extends Error {
-  kind;
-  status;
-  rateLimitReset;
-  constructor(message, options) {
-    super(message);
-    this.name = "ProviderError";
-    this.kind = options.kind;
-    this.status = options.status ?? 0;
-    this.rateLimitReset = options.rateLimitReset ?? null;
-  }
-}
 
 // src/providers/compat.ts
 var RUN_STATUS = {
@@ -3827,6 +3834,8 @@ var POLL_IDLE_MS = 60000;
 var PANEL_WINDOW_MS = 75000;
 var STATUS_WINDOW_MS = 60000;
 var RECENT_MS = 60 * 60000;
+var BACKOFF_BASE_MS = 30000;
+var BACKOFF_MAX_MS = 10 * 60000;
 var QUERY_TTL_MS = 15000;
 var KNOWN_TTL_MS = 15000;
 var HISTORY_PAGE = 20;
@@ -3866,6 +3875,7 @@ var createEngine = (deps) => {
   const clients = new Map;
   const auths = new Map;
   const rates = new Map;
+  const backoffs = new Map;
   let known = null;
   let panelSeenAt = 0;
   let statusSeenAt = 0;
@@ -3877,6 +3887,16 @@ var createEngine = (deps) => {
   let loopDueAt = 0;
   let polling = null;
   let lastConfigMessage;
+  const SETTINGS_TTL_MS = 2000;
+  let settingsCache = null;
+  const readSettings = () => {
+    if (settingsCache && now() - settingsCache.at < SETTINGS_TTL_MS)
+      return settingsCache.value;
+    const value = deps.auth.readSettings().catch(() => ({}));
+    settingsCache = { at: now(), value };
+    return value;
+  };
+  const authDeps = { ...deps.auth, readSettings };
   let serverList = [];
   const knownHosts = async () => {
     if (known && now() - known.at < KNOWN_TTL_MS)
@@ -3910,7 +3930,7 @@ var createEngine = (deps) => {
     return { key: view.key, ref, provider, account: accountOf(provider, ref.host), view };
   };
   const servers = async () => {
-    const settings = await deps.auth.readSettings().catch(() => ({}));
+    const settings = await readSettings();
     const out = [];
     for (const provider of PROVIDERS) {
       const server = serverOf(settings, provider);
@@ -3936,13 +3956,13 @@ var createEngine = (deps) => {
   const rejectedMessage = (provider, source) => `${provider.label} rejected the ${sourceLabel(source, provider)}. Reconnect ${provider.label} in OpenChamber or paste a new token on the CI Hub card.`;
   const clientFor = async (provider, host) => {
     const account = accountOf(provider, host);
-    const result = await resolveToken(deps.auth, provider, host);
+    const result = await resolveToken(authDeps, provider, host);
     if (result.token === null) {
       setAuth(provider, host, { ok: false, source: null, sourceLabel: null, message: result.message });
       throw new EngineError(result.message, 401);
     }
     const label = sourceLabel(result.source, provider);
-    if (rejected.get(account)?.has(result.token)) {
+    if (rejected.get(account) === result.token) {
       const message = rejectedMessage(provider, result.source);
       setAuth(provider, host, { ok: false, source: result.source, sourceLabel: label, message });
       throw new EngineError(message, 401);
@@ -3950,7 +3970,7 @@ var createEngine = (deps) => {
     setAuth(provider, host, { ok: true, source: result.source, sourceLabel: label, message: null });
     const server = (await servers()).find((entry) => entry.provider.id === provider.id && entry.host === host.toLowerCase());
     const origin = server?.origin;
-    const settings = await deps.auth.readSettings().catch(() => ({}));
+    const settings = await readSettings();
     const user = provider.authSetting ? settings[provider.authSetting]?.trim() || undefined : undefined;
     const existing = clients.get(account);
     if (existing && existing.token === result.token && existing.origin === origin && existing.user === user)
@@ -4079,7 +4099,11 @@ var createEngine = (deps) => {
   const observe = (target, err) => {
     if (!(err instanceof ProviderError))
       return;
-    if (err.kind === "rate-limit") {
+    if (err.kind === "network" || err.kind === "server") {
+      const failures = (backoffs.get(target.account)?.failures ?? 0) + 1;
+      const wait = Math.min(BACKOFF_BASE_MS * 2 ** (failures - 1), BACKOFF_MAX_MS);
+      backoffs.set(target.account, { failures, until: now() + wait });
+    } else if (err.kind === "rate-limit") {
       rates.set(target.account, {
         remaining: 0,
         resetAt: err.rateLimitReset,
@@ -4089,11 +4113,8 @@ var createEngine = (deps) => {
     } else if (err.kind === "auth") {
       const current = clients.get(target.account);
       const source = auths.get(target.account)?.source ?? null;
-      if (current) {
-        const set = rejected.get(target.account) ?? new Set;
-        set.add(current.token);
-        rejected.set(target.account, set);
-      }
+      if (current)
+        rejected.set(target.account, current.token);
       if (source) {
         setAuth(target.provider, target.ref.host, {
           ok: false,
@@ -4114,7 +4135,9 @@ var createEngine = (deps) => {
     }
     const client = await clientFor(target.provider, target.ref.host);
     try {
-      return await work(client);
+      const result = await work(client);
+      backoffs.delete(target.account);
+      return result;
     } catch (err) {
       observe(target, err);
       throw err;
@@ -4172,7 +4195,7 @@ var createEngine = (deps) => {
     return value;
   };
   const settingsRepos = async () => {
-    const settings = await deps.auth.readSettings().catch(() => ({}));
+    const settings = await readSettings();
     const entries = (settings.repos ?? "").split(/[\s,]+/).map((entry) => entry.trim()).filter((entry) => entry !== "");
     const keys = await Promise.all(entries.map((entry) => resolveInput(entry)));
     return keys.filter((key) => key !== null);
@@ -4357,6 +4380,8 @@ var createEngine = (deps) => {
       for (const target of await watched()) {
         if (blockOf(target.account))
           continue;
+        if ((backoffs.get(target.account)?.until ?? 0) > now())
+          continue;
         await pollRepo(target.key);
       }
       await refreshMarks().catch(() => {
@@ -4462,14 +4487,21 @@ var createEngine = (deps) => {
       pollAll().finally(reschedule);
     }, every);
   }
+  const raceTimer = async (work, ms) => {
+    let handle;
+    try {
+      await Promise.race([work, new Promise((resolve) => handle = timers.set(resolve, ms))]);
+    } finally {
+      timers.clear(handle);
+    }
+  };
   const ensureFresh = async (target, maxAge, waitMs) => {
     const slot = slotFor(target.key);
     if (slot.polledAt !== null && now() - slot.polledAt < maxAge)
       return;
     if (blockOf(target.account))
       return;
-    const work = pollRepo(target.key);
-    await Promise.race([work, new Promise((resolve) => timers.set(resolve, waitMs))]);
+    await raceTimer(pollRepo(target.key), waitMs);
   };
   const providers = () => PROVIDERS.map(providerView);
   const state = async (directory) => {
@@ -4536,12 +4568,9 @@ var createEngine = (deps) => {
     const currentView = views.find((repo) => repoKeyId(repo.key) === repoKeyId(current ?? ""));
     const empty = targets.filter((target) => slotFor(target.key).polledAt === null && auths.get(target.account)?.ok && !blockOf(target.account));
     if (empty.length > 0) {
-      await Promise.race([
-        Promise.all(empty.map((target) => pollRepo(target.key).catch(() => {
-          return;
-        }))),
-        new Promise((resolve) => timers.set(resolve, 8000))
-      ]);
+      await raceTimer(Promise.all(empty.map((target) => pollRepo(target.key).catch(() => {
+        return;
+      }))), 8000);
     }
     const repos = views.map((repo) => {
       const slot = slotFor(repo.key);
@@ -5237,6 +5266,7 @@ var home = homedir();
 var dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join4(home, ".openchamber-ci-hub");
 var storePath = join4(home, ".config", "openchamber", "source-control-auth.json");
 var MAX_BODY_BYTES = 256 * 1024;
+var REQUEST_TIMEOUT_MS = 20000;
 var host = process.env.OPENCHAMBER_HOST_CALLBACK_URL ? createServiceHost({ env: process.env }) : null;
 var run = (program, args, cwd) => new Promise((resolve) => {
   execFile(program, args, { cwd, timeout: 1e4, maxBuffer: 1024 * 1024, env: process.env }, (err, stdout, stderr) => {
@@ -5279,7 +5309,7 @@ var engine = createEngine({
     readSettings: async () => host ? host.readSettings() : {},
     cliToken
   },
-  fetch: (input, init) => fetch(input, init),
+  fetch: withTimeout((input, init) => fetch(input, init), REQUEST_TIMEOUT_MS),
   git: (args, cwd) => run("git", args, cwd),
   emit: (topic, data) => {
     host?.emit(topic, data).catch(() => {
@@ -5295,14 +5325,18 @@ var engine = createEngine({
     setMark: (target, mark) => host.setMark(target, mark)
   } : {}
 });
+
+class BodyTooLarge extends Error {
+}
 var readBody = (req) => new Promise((resolve, reject) => {
   const chunks = [];
   let size = 0;
   req.on("data", (chunk) => {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      reject(new Error("body too large"));
-      req.destroy();
+      req.pause();
+      req.removeAllListeners("data");
+      reject(new BodyTooLarge("body too large"));
       return;
     }
     chunks.push(chunk);
@@ -5310,21 +5344,31 @@ var readBody = (req) => new Promise((resolve, reject) => {
   req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
   req.on("error", reject);
 });
+var expected = Buffer.from(`Bearer ${token}`);
+var authorized = (header) => {
+  const given = Buffer.from(header ?? "");
+  return given.length === expected.length && timingSafeEqual(given, expected);
+};
 var server = createServer(async (req, res) => {
   const reply = (status, body) => {
     const text = JSON.stringify(body);
     res.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(text) });
     res.end(text);
   };
-  if (req.headers.authorization !== `Bearer ${token}`)
+  if (!authorized(req.headers.authorization))
     return reply(401, { error: "unauthorized" });
   try {
     const body = await readBody(req);
     const result = await handleRequest({ method: req.method ?? "GET", url: req.url ?? "/", body }, engine);
     reply(result.status, result.body);
   } catch (err) {
+    if (err instanceof BodyTooLarge) {
+      res.setHeader("connection", "close");
+      return reply(413, { error: "body too large" });
+    }
     console.error("[ci-hub] request failed", err);
-    reply(500, { error: "internal" });
+    if (!res.headersSent)
+      reply(500, { error: "internal" });
   }
 });
 server.on("error", (err) => {

@@ -436,6 +436,63 @@ describe('engine', () => {
     expect(count('ghe.acme.io')).toBe(1);
   });
 
+  test('one run read asks the host for its settings once', async () => {
+    let reads = 0;
+    const engine = createEngine({
+      prefs: createMemoryPrefsStore(),
+      config: createMemoryConfigStore(),
+      audit: async () => undefined,
+      auth: {
+        readStore: async () => undefined,
+        readSettings: async () => {
+          reads++;
+          return {};
+        },
+        cliToken: async () => 't',
+      },
+      fetch: async (url) => (url.includes('/jobs') ? Response.json({ jobs: [] }) : Response.json(rawRun())),
+      git: async () => ({ code: 1, stdout: '', stderr: '' }),
+      emit: () => undefined,
+      needsConfiguration: () => undefined,
+      timers: { set: () => 0, clear: () => undefined },
+    });
+    await engine.runDetail(KEY, '100');
+    expect(reads).toBe(1);
+  });
+
+  test('the short wait for a first read leaves no timer behind', async () => {
+    const { engine, timers } = setup({ remotes: { '/p/app': 'git@github.com:acme/app.git' } });
+    await engine.overview({ directory: null, projects: [{ id: 'a', name: 'App', directory: '/p/app' }], expanded: [] });
+    expect(timers.filter((t) => t.ms === 8_000)).toEqual([]);
+  });
+
+  test('a host that keeps failing is polled less often until it answers', async () => {
+    let down = false;
+    const { engine, requests, advance } = setup({ status: () => (down ? 503 : 200) });
+    await engine.addRepo('acme/app');
+    await engine.pollAll();
+    const polls = () => requests.filter((r) => r === 'GET /repos/acme/app/actions/runs').length;
+    down = true;
+    advance(25_000);
+    await engine.pollAll();
+    const first = polls();
+    // The first failure waits 30 s before the next try.
+    advance(25_000);
+    await engine.pollAll();
+    expect(polls()).toBe(first);
+    advance(10_000);
+    await engine.pollAll();
+    expect(polls()).toBe(first + 1);
+    // An answer clears the backoff: the next tick polls again.
+    down = false;
+    advance(65_000);
+    await engine.pollAll();
+    expect(polls()).toBe(first + 2);
+    advance(25_000);
+    await engine.pollAll();
+    expect(polls()).toBe(first + 3);
+  });
+
   test('a wait started before the upgrade resumes', async () => {
     const { engine } = setup({ run: () => rawRun({ status: 'completed', conclusion: 'success' }) });
     const state = { repo: 'acme/app', runId: '100', conclusion: null, attempt: 1, number: 7, workflow: 'CI' };

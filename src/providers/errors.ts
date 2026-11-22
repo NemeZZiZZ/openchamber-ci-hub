@@ -3,6 +3,15 @@
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/** A fetch that gives up on a host that never answers, keeping any signal the caller passed. */
+export const withTimeout =
+  (fetch: FetchLike, ms: number): FetchLike =>
+  (input, init) => {
+    const timeout = AbortSignal.timeout(ms);
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    return fetch(input, { ...init, signal });
+  };
+
 export type ProviderErrorKind =
   | 'auth'
   | 'not-found'

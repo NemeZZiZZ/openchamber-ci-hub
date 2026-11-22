@@ -3,6 +3,7 @@
 // needs to survive that lives in the data folder or in OpenChamber's wait state.
 
 import { execFile } from 'node:child_process';
+import { timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage } from 'node:http';
 import { homedir } from 'node:os';
@@ -11,6 +12,7 @@ import { createServiceHost } from '@openchamber/sdk';
 import { createFileAudit, createFileConfigStore } from '../src/service/configStore.ts';
 import { createFilePrefsStore } from '../src/service/prefs.ts';
 import type { ServiceMark, ServiceMarkTarget } from '@openchamber/sdk';
+import { withTimeout } from '../src/providers/errors.ts';
 import { createEngine, type ExecResult } from '../src/service/engine.ts';
 import { removeEndpoint, writeEndpoint } from '../src/service/endpoint.ts';
 import { INSTRUCTIONS } from '../src/service/instructions.ts';
@@ -27,6 +29,7 @@ const home = homedir();
 const dataDir = process.env.OPENCHAMBER_SERVICE_DATA_DIR || join(home, '.openchamber-ci-hub');
 const storePath = join(home, '.config', 'openchamber', 'source-control-auth.json');
 const MAX_BODY_BYTES = 256 * 1024;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 const host = process.env.OPENCHAMBER_HOST_CALLBACK_URL ? createServiceHost({ env: process.env }) : null;
 
@@ -78,7 +81,8 @@ const engine = createEngine({
     readSettings: async () => (host ? host.readSettings() : {}),
     cliToken,
   },
-  fetch: (input, init) => fetch(input, init),
+  // One hung CI host must not stall polling for every other repo.
+  fetch: withTimeout((input, init) => fetch(input, init), REQUEST_TIMEOUT_MS),
   git: (args, cwd) => run('git', args, cwd),
   emit: (topic, data) => {
     host?.emit(topic, data).catch(() => undefined);
@@ -94,6 +98,8 @@ const engine = createEngine({
     : {}),
 });
 
+class BodyTooLarge extends Error {}
+
 const readBody = (req: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -101,8 +107,10 @@ const readBody = (req: IncomingMessage): Promise<string> =>
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        reject(new Error('body too large'));
-        req.destroy();
+        // Stop reading but keep the socket: the caller still answers 413.
+        req.pause();
+        req.removeAllListeners('data');
+        reject(new BodyTooLarge('body too large'));
         return;
       }
       chunks.push(chunk);
@@ -111,20 +119,30 @@ const readBody = (req: IncomingMessage): Promise<string> =>
     req.on('error', reject);
   });
 
+const expected = Buffer.from(`Bearer ${token}`);
+const authorized = (header: string | undefined): boolean => {
+  const given = Buffer.from(header ?? '');
+  return given.length === expected.length && timingSafeEqual(given, expected);
+};
+
 const server = createServer(async (req, res) => {
   const reply = (status: number, body: unknown) => {
     const text = JSON.stringify(body);
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(text) });
     res.end(text);
   };
-  if (req.headers.authorization !== `Bearer ${token}`) return reply(401, { error: 'unauthorized' });
+  if (!authorized(req.headers.authorization)) return reply(401, { error: 'unauthorized' });
   try {
     const body = await readBody(req);
     const result = await handleRequest({ method: req.method ?? 'GET', url: req.url ?? '/', body }, engine);
     reply(result.status, result.body);
   } catch (err) {
+    if (err instanceof BodyTooLarge) {
+      res.setHeader('connection', 'close');
+      return reply(413, { error: 'body too large' });
+    }
     console.error('[ci-hub] request failed', err);
-    reply(500, { error: 'internal' });
+    if (!res.headersSent) reply(500, { error: 'internal' });
   }
 });
 

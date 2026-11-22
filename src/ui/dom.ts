@@ -12,7 +12,7 @@ export const h = <K extends keyof HTMLElementTagNameMap>(
     if (value === null || value === undefined || value === false) continue;
     if (key === 'class') node.className = String(value);
     else if (key === 'text') node.textContent = String(value);
-    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value as EventListener);
+    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
     else if (value === true) node.setAttribute(key, '');
     else node.setAttribute(key, String(value));
   }

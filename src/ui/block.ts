@@ -82,6 +82,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
     let log: string | null = null;
     let logTruncated = false;
     let logOpen = false;
+    let actionError: string | null = null;
 
     const render = () => {
       box.textContent = '';
@@ -131,11 +132,12 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
         text: isFailed(run) ? t('block.rerunFailed') : t('block.rerun'),
         onClick: async () => {
           rerun.disabled = true;
+          actionError = null;
           try {
             await svc({ method: 'POST', path: '/action', body: { kind: rerunKind(run), repo: run.repo, runId: run.id } });
             ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: blockRunQuery(target) }));
           } catch (err) {
-            box.append(h('div', { class: 'cihb-error', text: errorText(err) }));
+            actionError = errorText(err);
           }
           render();
         },
@@ -152,12 +154,12 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
               logOpen = !logOpen;
               if (logOpen && log === null) {
                 try {
-                  const window = await svc<{ text: string; truncated: boolean }>({
+                  const logWindow = await svc<{ text: string; truncated: boolean }>({
                     path: '/log',
                     query: { repo: run.repo, job: job.id },
                   });
-                  log = window.text;
-                  logTruncated = window.truncated;
+                  log = logWindow.text;
+                  logTruncated = logWindow.truncated;
                 } catch (err) {
                   log = errorText(err);
                 }
@@ -183,6 +185,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
         );
       }
       box.append(actions);
+      if (actionError) box.append(h('div', { class: 'cihb-error', text: actionError }));
 
       if (logOpen && log !== null) {
         box.append(h('pre', { class: 'cihb-log', text: `${logTruncated ? t('block.logTail') : ''}${log.slice(-8000)}` }));
