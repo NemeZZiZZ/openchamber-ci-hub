@@ -13,6 +13,11 @@ All notable changes to CI Hub are documented here. The format follows
   line, so replies carried it bare in prose and the chat showed the call as
   text. Both now show it inside an `openui-lang` fence under
   `root = Stack([...])`, the only place a UI block draws.
+- **Every `CiRun` card answered `Missing id.`** The block fetched
+  `/run?repo=…&runId=…`, but the route reads the run id from the `id`
+  parameter (as the panel does), so each card failed with the service's
+  "Missing id." The block now sends `id` through `blockRunQuery`, pinned by
+  a block↔route contract test.
 
 ## [0.3.0] — 2026-11-20
 

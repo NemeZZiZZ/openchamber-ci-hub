@@ -29,6 +29,12 @@ export const readBlockArgs = (args: Record<string, string>): { repo: string; run
   return { repo, runId };
 };
 
+export const blockRunQuery = (target: { repo: string; runId: string }): { repo: string; id: string } => ({
+  repo: target.repo,
+  // The /run route reads the run id from the "id" parameter, like the panel.
+  id: target.runId,
+});
+
 export const blockTitle = (run: Run): string =>
   t('block.titleStatus', { workflow: run.workflow, number: run.number, status: conLabel(run.conclusion ?? run.status) });
 

@@ -3,6 +3,7 @@ import { createMemoryConfigStore } from '../src/service/configStore.ts';
 import { createEngine } from '../src/service/engine.ts';
 import { createMemoryPrefsStore } from '../src/service/prefs.ts';
 import { handleRequest } from '../src/service/routes.ts';
+import { blockRunQuery, readBlockArgs } from '../src/ui/blockModel.ts';
 
 const engineWith = (status: number) =>
   createEngine({
@@ -35,6 +36,15 @@ describe('routes', () => {
     const res = await get('/run?repo=github:github.com/acme/app');
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ message: expect.stringContaining('id') });
+  });
+
+  test('the CiRun block query satisfies the /run route', async () => {
+    const target = readBlockArgs({ repo: 'github:github.com/acme/app', runId: '1' });
+    const params = new URLSearchParams(blockRunQuery(target)).toString();
+    const res = await get(`/run?${params}`);
+    // A missing run is fine; a 400 here means the block and the route
+    // disagree about the parameter names again.
+    expect(res.status).not.toBe(400);
   });
 
   test('provider errors keep their meaning', async () => {

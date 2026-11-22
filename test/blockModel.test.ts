@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { GUEST_BLOCK_ANSWER_MAX } from '@openchamber/sdk';
 import type { Run } from '../src/domain/types.ts';
-import { blockAnswer, blockTitle, readBlockArgs, rerunKind } from '../src/ui/blockModel.ts';
+import { blockAnswer, blockRunQuery, blockTitle, readBlockArgs, rerunKind } from '../src/ui/blockModel.ts';
 
 const run = (over: Partial<Run> = {}): Run => ({
   id: '100',
@@ -24,6 +24,14 @@ const run = (over: Partial<Run> = {}): Run => ({
   url: 'https://github.com/acme/app/actions/runs/100',
   commitUrl: null,
   ...over,
+});
+
+describe('blockRunQuery', () => {
+  test('names the run id "id", the parameter the /run route requires', () => {
+    const target = readBlockArgs({ repo: 'github:github.com/acme/app', runId: '100' });
+    expect(blockRunQuery(target)).toEqual({ repo: 'github:github.com/acme/app', id: '100' });
+    expect(Object.keys(blockRunQuery(target))).not.toContain('runId');
+  });
 });
 
 describe('readBlockArgs', () => {

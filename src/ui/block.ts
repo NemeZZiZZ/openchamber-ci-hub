@@ -7,7 +7,7 @@ import { GUEST_FRAME_HEIGHT_MAX } from '@openchamber/sdk';
 import { isFailed, runDurationLabel } from '../domain/format.ts';
 import { buildHandoff, failedJobs, focusJob } from '../domain/handoff.ts';
 import type { Job, Run } from '../domain/types.ts';
-import { blockAnswer, blockTitle, readBlockArgs, rerunKind } from './blockModel.ts';
+import { blockAnswer, blockRunQuery, blockTitle, readBlockArgs, rerunKind } from './blockModel.ts';
 import { h } from './dom.ts';
 import { t } from './i18n.ts';
 import { createSvc, errorText } from './port.ts';
@@ -64,7 +64,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
     box.append(h('div', { class: 'cihb-meta', text: t('block.loading') }));
     resize();
     try {
-      ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: target }));
+      ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: blockRunQuery(target) }));
     } catch (err) {
       renderError(errorText(err));
       return;
@@ -117,7 +117,7 @@ export const startBlock = (host: HostClient, root: HTMLElement): void => {
           rerun.disabled = true;
           try {
             await svc({ method: 'POST', path: '/action', body: { kind: rerunKind(run), repo: run.repo, runId: run.id } });
-            ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: target }));
+            ({ run, jobs } = await svc<{ run: Run; jobs: Job[] }>({ path: '/run', query: blockRunQuery(target) }));
           } catch (err) {
             box.append(h('div', { class: 'cihb-error', text: errorText(err) }));
           }
